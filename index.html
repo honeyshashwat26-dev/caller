@@ -3,686 +3,449 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enterprise Security Dialer & Analytics Console</title>
+    <title>Enterprise Security Dialer - Admin Overlord Edition</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    
     <style>
-        :root {
-            --bg-main: #f4f6f9;
-            --surface: #ffffff;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            --primary: #007aff;
-            --primary-hover: #0062cc;
-            --success: #22c55e;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --border: #e2e8f0;
-            --glass-bg: rgba(255, 255, 255, 0.7);
-            --glass-blur: blur(12px);
-            --font-sans: 'Inter', sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
-        }
-
-        /* Dynamic Theme Palette Maps */
-        body.theme-dark {
-            --bg-main: #0f172a; --surface: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8; --border: #334155; --glass-bg: rgba(30, 41, 59, 0.7);
-        }
-        body.theme-amoled {
-            --bg-main: #000000; --surface: #0b0f19; --text-main: #ffffff; --text-muted: #64748b; --border: #1e293b; --glass-bg: rgba(0, 0, 0, 0.8);
-        }
-        body.theme-purple {
-            --primary: #8b5cf6; --primary-hover: #7c3aed;
-        }
-        body.theme-blue {
-            --primary: #2563eb; --primary-hover: #1d4ed8;
-        }
-        body.theme-green {
-            --primary: #10b981; --primary-hover: #059669;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; transition: background 0.3s, border-color 0.3s; }
-        body { font-family: var(--font-sans); background: var(--bg-main); color: var(--text-main); min-height: 100vh; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; padding: 20px; box-sizing: border-box; transition: background 0.5s, color 0.5s; }
+        .phone-container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0px 10px 25px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 320px; z-index: 10; margin-bottom: 20px; color: #333; }
+        .screen { width: 100%; height: 50px; font-size: 24px; text-align: center; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; background-color: #fafafa; color: #333; }
+        .status { font-size: 14px; color: #333; margin-bottom: 15px; font-weight: bold; background: #e7f3ff; padding: 8px; border-radius: 8px; display: inline-block; }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .btn { padding: 15px; font-size: 20px; border: none; background: #e4e6eb; border-radius: 50%; cursor: pointer; transition: 0.2s; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: auto; font-weight: bold; color: #333; }
+        .btn:active { background: #d8dadf; }
         
-        header { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; background: var(--surface); border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .branding h1 { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-        .live-clock-container { font-family: var(--font-mono); font-size: 0.9rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+        .local-controls { display: flex; justify-content: space-around; margin-bottom: 15px; }
+        .control-btn { border: none; padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; background: #007aff; color: white; font-size: 13px; }
+        .control-btn.muted { background: #ff3b30; }
+        .control-btn:disabled { background: #8e8e93; cursor: not-allowed; }
 
-        .app-layout { display: grid; grid-template-columns: 320px 1fr; gap: 20px; max-width: 1600px; width: 100%; margin: 0 auto; align-items: start; }
-        @media(max-width: 1024px) { .app-layout { grid-template-columns: 1fr; } }
-
-        /* Left Control Column: Phone / Dialer Elements */
-        .control-sidebar { display: flex; flex-direction: column; gap: 20px; }
-        .card { background: var(--surface); border-radius: 16px; border: 1px solid var(--border); padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03); position: relative; overflow: hidden; }
+        .call-btn { background: #25d366; color: white; width: 100%; border: none; border-radius: 10px; height: 50px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .call-btn:active { background: #20ba5a; }
         
-        .screen-wrapper { position: relative; margin: 15px 0; }
-        .phone-screen { width: 100%; height: 55px; font-family: var(--font-mono); font-size: 1.5rem; text-align: center; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-main); color: var(--text-main); font-weight: 600; outline: none; }
-        .phone-screen:focus { border-color: var(--primary); }
+        .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-top: 10px; }
+        @media(max-width: 480px) { .video-grid { grid-template-columns: 1fr; } }
+        .video-wrapper { position: relative; background: #222; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        .video-label { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
 
-        .keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 15px; }
-        .key-btn { height: 55px; border-radius: 50%; border: none; background: var(--bg-main); color: var(--text-main); font-size: 1.2rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .key-btn:active { background: var(--border); transform: scale(0.95); }
+        .announcement-bar { display: none; width: 100%; max-width: 600px; background: #ffcc00; color: #000; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 15px; }
 
-        .action-row { display: grid; grid-template-columns: 1fr; gap: 10px; }
-        .btn-call { background: var(--success); color: white; height: 50px; border: none; border-radius: 12px; font-weight: 600; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-call.in-call { background: var(--danger); }
+        body.dark-theme { background-color: #1c1c1e; color: white; }
+        body.dark-theme .phone-container { background: #2c2c2e; color: white; }
+        body.dark-theme .screen { background: #3a3a3c; color: white; border-color: #48484a; }
+        body.dark-theme .btn { background: #3a3a3c; color: white; }
 
-        /* Device Hardware Selector Engine */
-        .hardware-menu { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; font-size: 0.85rem; }
-        .hw-select { width: 100%; padding: 8px; border-radius: 8px; background: var(--bg-main); border: 1px solid var(--border); color: var(--text-main); }
-
-        /* Video Node Grid */
-        .video-matrix-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-top: 15px; }
-        .video-box { position: relative; aspect-ratio: 4/3; background: #000; border-radius: 12px; overflow: hidden; }
-        .video-box video { width: 100%; height: 100%; object-fit: cover; }
-        .video-box.local video { transform: scaleX(-1); }
-        .box-overlay { position: absolute; bottom: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 6px; color: white; font-size: 0.75rem; backdrop-filter: blur(4px); }
-
-        /* Performance Analytics Dashboard Framework */
-        .dashboard-main { display: flex; flex-direction: column; gap: 20px; }
-        .stats-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
-        .stat-card { background: var(--surface); border: 1px solid var(--border); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 12px; }
-        .stat-icon { width: 40px; height: 40px; border-radius: 8px; background: rgba(0,122,255,0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; }
-        .stat-meta h4 { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-meta p { font-size: 1.2rem; font-weight: 700; font-family: var(--font-mono); }
-
-        /* Analytics Tab/Charts Section */
-        .analytics-block { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
-        @media(max-width: 768px) { .analytics-block { grid-template-columns: 1fr; } }
-        .chart-container { height: 260px; position: relative; }
-
-        /* WebRTC Diagnostics Stack */
-        .diagnostics-list { font-family: var(--font-mono); font-size: 0.8rem; display: flex; flex-direction: column; gap: 6px; }
-        .diag-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--border); }
-        .diag-val { color: var(--primary); font-weight: 500; }
-
-        /* Interactive Tables & Event Tracking UI */
-        .data-table-box { width: 100%; overflow-x: auto; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
-        th { padding: 10px; background: var(--bg-main); color: var(--text-muted); font-weight: 600; border-bottom: 2px solid var(--border); }
-        td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        /* Admin Dashboard Windows UI */
+        .admin-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; color: #333; }
+        .admin-content { background: white; padding: 25px; border-radius: 20px; width: 95%; max-width: 650px; box-shadow: 0px 10px 30px rgba(0,0,0,0.3); text-align: left; max-height: 90vh; overflow-y: auto; }
+        .admin-content h2 { margin-top: 0; color: #ff3b30; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; }
         
-        .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-        .badge.online { background: rgba(34,197,94,0.15); color: var(--success); }
-        .badge.incall { background: rgba(245,158,11,0.15); color: var(--warning); }
-
-        /* Toast Engine */
-        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
-        .toast { background: var(--surface); border-left: 4px solid var(--primary); padding: 12px 20px; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px; transform: translateY(50px); opacity: 0; animation: toastIn 0.3s forwards; min-width: 280px; font-size: 0.85rem; }
-        @keyframes toastIn { to { transform: translateY(0); opacity: 1; } }
-
-        /* Admin Dashboard Windows Overlord UI Layout */
-        .admin-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
-        .admin-window { background: var(--surface); width: 90%; max-width: 850px; border-radius: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; max-height: 85vh; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
-        .admin-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border); background: var(--bg-main); border-top-left-radius: 16px; border-top-right-radius: 16px; }
-        .admin-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-
-        .vol-slider { width: 100%; height: 6px; -webkit-appearance: none; background: var(--border); border-radius: 3px; outline: none; }
-        .vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--primary); cursor: pointer; }
+        .tracker-stats { display: flex; justify-content: space-between; background: #f0f2f5; padding: 10px 15px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; }
+        .user-list-container { max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 10px; padding: 10px; background: #fafafa; margin-bottom: 15px; }
+        .user-item { padding: 12px; border-bottom: 1px solid #e8e8e8; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+        .user-row { display: flex; justify-content: space-between; align-items: center; }
+        .admin-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+        .action-btn { border: none; padding: 5px 8px; border-radius: 5px; font-size: 11px; font-weight: bold; cursor: pointer; color: white; }
+        .action-btn.kick { background: #ff3b30; }
+        .action-btn.ban { background: #5856d6; }
+        .action-btn.mute { background: #ff9500; }
+        .action-btn.unmute { background: #34c759; }
+        .action-btn.spy { background: #007aff; }
         
-        .action-icon-btn { border: none; background: none; cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; padding: 4px; border-radius: 6px; }
-        .action-icon-btn:hover { background: var(--bg-main); color: var(--primary); }
+        .admin-input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        .admin-btn { padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; background: #ff3b30; color: white; width: 100%; font-size: 16px; margin-top: 10px; }
+        .badge { background: #007aff; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="branding">
-            <h1><span class="material-icons" style="color:var(--primary)">security_update_good</span> Enterprise Comms Array <span style="font-size:0.75rem; font-family:var(--font-mono); font-weight:400; padding:2px 6px; background:var(--border); border-radius:4px;">V2.5-PROD</span></h1>
-        </div>
-        <div style="display:flex; align-items:center; gap:20px;">
-            <div class="live-clock-container">
-                <span class="material-icons style-icon">schedule</span>
-                <span id="system-clock">00:00:00 UTC</span>
-            </div>
-            <select class="hw-select" style="width:120px;" onchange="switchTheme(this.value)">
-                <option value="theme-light">☀️ Light</option>
-                <option value="theme-dark" selected>🌙 Dark</option>
-                <option value="theme-amoled">🌌 AMOLED</option>
-            </select>
-        </div>
-    </header>
+<div id="announcement-box" class="announcement-bar"></div>
 
-    <div class="app-layout">
-        
-        <div class="control-sidebar">
-            <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight:600; font-size:0.85rem; color:var(--text-muted);">LOCAL IDENTITY VECTOR</span>
-                    <button class="action-icon-btn" onclick="copyRoomID()" title="Copy Room ID"><span class="material-icons" style="font-size:16px;">content_copy</span></button>
-                </div>
-                <div id="my-number" style="font-family:var(--font-mono); font-size:1.4rem; font-weight:700; color:var(--primary); margin:8px 0;">----</div>
-                
-                <div class="screen-wrapper">
-                    <input type="text" id="phone-screen" class="phone-screen" placeholder="Dial Matrix Target" readonly />
-                </div>
-
-                <div class="keypad-grid">
-                    <button class="key-btn" onclick="press('1')">1</button>
-                    <button class="key-btn" onclick="press('2')">2</button>
-                    <button class="key-btn" onclick="press('3')">3</button>
-                    <button class="key-btn" onclick="press('4')">4</button>
-                    <button class="key-btn" onclick="press('5')">5</button>
-                    <button class="key-btn" onclick="press('6')">6</button>
-                    <button class="key-btn" onclick="press('7')">7</button>
-                    <button class="key-btn" onclick="press('8')">8</button>
-                    <button class="key-btn" onclick="press('9')">9</button>
-                    <button class="key-btn" onclick="press('*')">*</button>
-                    <button class="key-btn" onclick="press('0')">0</button>
-                    <button class="key-btn" onclick="clearScreen()" style="color:var(--danger)">C</button>
-                </div>
-
-                <div class="action-row">
-                    <button class="btn-call" id="call-action" onclick="handleCall()">
-                        <span class="material-icons">call</span> <span id="call-btn-text">INITIALIZE LINK</span>
-                    </button>
-                </div>
-
-                <div style="margin-top:15px; display:flex; align-items:center; gap:8px;">
-                    <span class="material-icons" style="font-size:16px; color:var(--text-muted);">mic</span>
-                    <div style="flex:1; height:8px; background:var(--bg-main); border-radius:4px; overflow:hidden;">
-                        <div id="vol-level" style="width:0%; height:100%; background:var(--success); transition:width 0.1s;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3 style="font-size:0.85rem; font-weight:600; margin-bottom:10px; color:var(--text-muted);">PERIPHERAL DRIVERS HwND</h3>
-                <div class="hardware-menu">
-                    <div>
-                        <label>Microphone Selector Array</label>
-                        <select id="audio-input-select" class="hw-select" onchange="changeAudioSource()"></select>
-                    </div>
-                    <div>
-                        <label>Camera Capture Interface</label>
-                        <select id="video-input-select" class="hw-select" onchange="changeVideoSource()"></select>
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:5px;">
-                        <label style="display:flex; justify-content:space-between; align-items:center;">
-                            <span>Acoustic Echo Cancellation</span>
-                            <input type="checkbox" id="aec-toggle" checked>
-                        </label>
-                        <label style="display:flex; justify-content:space-between; align-items:center;">
-                            <span>Intelligent Noise Suppressor</span>
-                            <input type="checkbox" id="ns-toggle" checked>
-                        </label>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="dashboard-main">
-            
-            <div class="stats-strip">
-                <div class="stat-card">
-                    <div class="stat-icon"><span class="material-icons">dns</span></div>
-                    <div class="stat-meta"><h4>Active Clusters</h4><p id="dash-active-users">1</p></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon" style="background:rgba(34,197,94,0.1); color:var(--success);"><span class="material-icons">phone_in_talk</span></div>
-                    <div class="stat-meta"><h4>Active Routes</h4><p id="dash-active-calls">0</p></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon" style="background:rgba(245,158,11,0.1); color:var(--warning);"><span class="material-icons">network_check</span></div>
-                    <div class="stat-meta"><h4>MQTT Ping Latency</h4><p id="dash-mqtt-latency">-- ms</p></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon" style="background:rgba(139,92,246,0.1); color:#8b5cf6;"><span class="material-icons">hourglass_empty</span></div>
-                    <div class="stat-meta"><h4>System Uptime</h4><p id="dash-uptime">00:00</p></div>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3 style="font-size:0.9rem; font-weight:600; margin-bottom:10px;">VIDEO SIGNAL INTERCEPTOR MATRICES</h3>
-                <div class="video-matrix-grid">
-                    <div class="video-box local">
-                        <video id="local-video" autoplay muted playsinline></video>
-                        <div class="box-overlay"><span>LOCAL TRANSMITTER</span><span class="material-icons" style="font-size:14px; color:var(--success)">videocam</span></div>
-                    </div>
-                    <div class="video-box">
-                        <video id="remote-video" autoplay playsinline></video>
-                        <div class="box-overlay"><span>REMOTE CAPTURE NODE</span><span id="remote-status-icon" class="material-icons" style="font-size:14px; color:var(--danger)">videocam_off</span></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="analytics-block">
-                <div class="card">
-                    <h3 style="font-size:0.9rem; font-weight:600; margin-bottom:12px;">CONCURRENT REAL-TIME SIGNALS PACKET TELEMETRY GRAPH</h3>
-                    <div class="chart-container">
-                        <canvas id="telemetryChart"></canvas>
-                    </div>
-                </div>
-                <div class="card">
-                    <h3 style="font-size:0.9rem; font-weight:600; margin-bottom:12px;">WebRTC DIAGNOSTICS LAYER</h3>
-                    <div class="diagnostics-list">
-                        <div class="diag-item"><span>ICE State Machine</span><span class="diag-val" id="rtc-ice-state">new</span></div>
-                        <div class="diag-item"><span>Current Codec Array</span><span class="diag-val" id="rtc-codec">Opus / VP8</span></div>
-                        <div class="diag-item"><span>Bitrate Target Estimation</span><span class="diag-val" id="rtc-bitrate">0 kbps</span></div>
-                        <div class="diag-item"><span>Packet Loss Intercepted</span><span class="diag-val" id="rtc-packet-loss" style="color:var(--success)">0%</span></div>
-                        <div class="diag-item"><span>Jitter Processing Vector</span><span class="diag-val" id="rtc-jitter">0ms</span></div>
-                        <div class="diag-item"><span>Round Trip Time RTT</span><span class="diag-val" id="rtc-rtt">0ms</span></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3 style="font-size:0.9rem; font-weight:600; margin-bottom:10px;">DISCOVERED CLUSTER LIVE SIGNAL ARRAYS</h3>
-                <div class="data-table-box">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>SESSION NODE INTERCEPT KEY</th>
-                                <th>VIRTUAL ASSIGNED ID</th>
-                                <th>NETWORK METADATA STATUS</th>
-                                <th>PERIPHERAL STATES</th>
-                                <th>EXECUTION COMPLIANCE</th>
-                            </tr>
-                        </thead>
-                        <tbody id="user-registry-table-body">
-                            </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="card">
-                <div style="display:flex; justify-content:between; align-items:center; margin-bottom:10px;">
-                    <h3 style="font-size:0.9rem; font-weight:600; flex:1;">SYSTEM TELEMETRY ENGINE EVENTS RUNTIME LOGGER</h3>
-                    <button class="btn-call" style="height:30px; font-size:0.75rem; padding:0 12px;" onclick="exportSystemLogs()">EXPORT JSON VECTOR</button>
-                </div>
-                <div id="system-event-runtime-log" style="height:120px; overflow-y:auto; font-family:var(--font-mono); font-size:0.75rem; background:var(--bg-main); padding:10px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:4px;">
-                    </div>
-            </div>
-
-        </div>
+<div class="phone-container">
+    <h3>Free Web Dialer</h3>
+    <div id="my-number" class="status">Generating ID...</div>
+    <input type="text" id="phone-screen" class="screen" placeholder="Enter ID to Dial" readonly />
+    
+    <div class="local-controls">
+        <button id="local-mic-btn" class="control-btn" onclick="toggleLocalAudio()">Mic: ON</button>
+        <button id="local-cam-btn" class="control-btn" onclick="toggleLocalVideo()">Cam: ON</button>
     </div>
 
-    <div id="toast-container"></div>
-
-    <div id="admin-panel" class="admin-modal">
-        <div class="admin-window">
-            <div class="admin-header">
-                <h2 style="font-size:1.1rem; font-weight:700; color:var(--danger); display:flex; align-items:center; gap:8px;"><span class="material-icons">gavel</span> Global System Overlord Execution Dashboard</h2>
-                <button class="action-icon-btn" onclick="closeAdminPanel()"><span class="material-icons">close</span></button>
-            </div>
-            <div class="admin-body">
-                <div>
-                    <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:8px;">Broadcast Corporate Network Notice</label>
-                    <div style="display:flex; gap:10px;">
-                        <input type="text" id="admin-broadcast-input" class="hw-select" placeholder="Enter universal telemetry string initialization payload data..." style="flex:1;">
-                        <button class="btn-call" style="height:40px; padding:0 20px;" onclick="submitGlobalBroadcast()">EMIT NOTICE</button>
-                    </div>
-                </div>
-                <div>
-                    <h3 style="font-size:0.9rem; font-weight:600; margin-bottom:10px;">System Vulnerability Engine Controls</h3>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">Administrative level vectors injected directly through operational partition infrastructure layers.</p>
-                </div>
-            </div>
-        </div>
+    <div class="keypad">
+        <button class="btn" onclick="press('1')">1</button>
+        <button class="btn" onclick="press('2')">2</button>
+        <button class="btn" onclick="press('3')">3</button>
+        <button class="btn" onclick="press('4')">4</button>
+        <button class="btn" onclick="press('5')">5</button>
+        <button class="btn" onclick="press('6')">6</button>
+        <button class="btn" onclick="press('7')">7</button>
+        <button class="btn" onclick="press('8')">8</button>
+        <button class="btn" onclick="press('9')">9</button>
+        <button class="btn" onclick="press('*')">*</button>
+        <button class="btn" onclick="press('0')">0</button>
+        <button class="btn" onclick="clearScreen()">C</button>
     </div>
+    
+    <button class="call-btn" id="call-action" onclick="handleCall()">START CALL</button>
+</div>
 
-    <script>
-        // System Variable Registries & Declarations Configuration Setup Block
-        const ADMIN_TRIGGER = "1818";
-        const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa323831c"; // Hashed representation of the authorization pass phrase string "Honey"
+<div class="video-grid">
+    <div class="video-wrapper">
+        <video id="local-video" autoplay muted playsinline></video>
+        <span class="video-label">You</span>
+    </div>
+    <div class="video-wrapper">
+        <video id="remote-video" autoplay playsinline></video>
+        <span class="video-label">Remote Friend/Spy Monitor</span>
+    </div>
+</div>
+
+<div id="admin-panel" class="admin-modal">
+    <div class="admin-content">
+        <h2>🛠️ Global Overlord Control Center</h2>
         
-        const sessionToken = Math.random().toString(36).substring(2, 9).toUpperCase();
-        const myPhoneNumber = Math.floor(1000 + Math.random() * 9000).toString();
+        <div class="tracker-stats">
+            <span>Systems Active Counter:</span>
+            <span id="active-count" style="color: #007aff;">1</span>
+        </div>
+
+        <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Live Discovered Node Arrays:</label>
+        <div class="user-list-container" id="user-list">
+            <div class="user-item" style="color: #888; text-align: center;">Mapping data channels...</div>
+        </div>
         
-        let localStream = null;
-        let currentCall = null;
-        let peerTargetNode = "none";
-        let activeUsersRegistry = {};
-        let amIAdminActive = false;
-        let systemBootstrapTime = Date.now();
-        let telemetryChartInstance = null;
-        let systemTelemetryEventLog = [];
+        <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Universal Execution Vectors:</label>
+        <input type="text" id="broadcast-msg" class="admin-input" placeholder="Type global system notice configuration data...">
+        <div style="display: flex; gap: 10px;">
+            <button class="control-btn" style="flex: 1; background: #ffcc00; color: #000;" onclick="sendBroadcast()">Broadcast Notice</button>
+            <button class="control-btn" style="flex: 1; background: #5856d6;" onclick="sendThemeToggle()">Toggle Global Theme</button>
+        </div>
 
-        // Dynamic System Execution Protection Check
-        let bannedRegistry = JSON.parse(localStorage.getItem('banned_nodes') || '[]');
-        if (bannedRegistry.includes(sessionToken)) {
-            document.body.innerHTML = `<div style="text-align:center; padding:100px; font-family:sans-serif;"><h1 style="color:red;">🚫 HARDWARE DISCONNECTOR VECTOR APPLIED</h1><p>Your hardware device vector node has been hard-dropped from the enterprise communications core infrastructure.</p></div>`;
-            throw new Error("Execution Terminated due to active structural ban directive targeting cluster layer.");
-        }
+        <button class="admin-btn" onclick="closeAdminPanel()">Relinquish Console</button>
+    </div>
+</div>
 
-        // Initialize PeerJS Node Object Framework Linkage Layer Connection Instance
-        document.getElementById('my-number').innerText = `NODE // ${myPhoneNumber}`;
-        const peer = new Peer(myPhoneNumber);
+<script>
+    const ADMIN_TRIGGER = "1818";
+  // Hashed password verification key (SHA-256 of string "Honey")
+const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa323831c";
+    
+    const sessionToken = Math.random().toString(36).substring(2, 9);
+    const myPhoneNumber = Math.floor(1000 + Math.random() * 9000).toString();
+    
+    document.getElementById('my-number').innerText = "Your Number ID: " + myPhoneNumber;
 
-        // Establish Pipeline to High-Performance MQTT Cluster Matrix Topology Layer
-        const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-        const SYSTEM_PRESENCE = "web_dialer_presence_secure_prod_alpha_88";
-        const SYSTEM_COMMANDS = "web_dialer_commands_secure_prod_alpha_88";
+    const peer = new Peer(myPhoneNumber);
+    let currentCall = null;
+    let localStream = null;
+    let peerTargetNode = "none"; // Track who we are currently speaking with
 
-        mqttClient.on('connect', () => {
-            mqttClient.subscribe(SYSTEM_PRESENCE);
-            mqttClient.subscribe(SYSTEM_COMMANDS);
-            logSystemEvent("MQTT Infrastructure Interceptor Matrix Linked", "success");
-            pushNotification("Connected to MQTT Enterprise Infrastructure Broker Successfully.", "success");
-            
-            setInterval(emitPresenceHeartbeat, 2500);
-        });
+    // Locks and States
+    let adminAudioLocked = false;
+    let adminVideoLocked = false;
+    let amIAdminActive = false;
+    let masterAdminToken = null;
 
-        mqttClient.on('message', (topic, payload) => {
-            try {
-                const data = JSON.parse(payload.toString());
-                if (topic === SYSTEM_PRESENCE) {
-                    activeUsersRegistry[data.token] = { ...data, lastSeen: Date.now() };
-                    renderUserRegistry();
-                } else if (topic === SYSTEM_COMMANDS) {
-                    handleIncomingSystemVectorCommands(data);
-                }
-            } catch (e) { console.error("Cluster Intercept Parse Error Matrix Drop Exception:", e); }
-        });
+    let activeUsersRegistry = {}; 
+    let bannedRegistry = JSON.parse(localStorage.getItem('banned_nodes') || '[]');
 
-        // Engine Processing Event Loops and Telemetry Handlers Tracking Data Packages
-        function emitPresenceHeartbeat() {
-            const micTrack = localStream?.getAudioTracks()[0];
-            const camTrack = localStream?.getVideoTracks()[0];
-            mqttClient.publish(SYSTEM_PRESENCE, JSON.stringify({
-                token: sessionToken,
-                roomCode: myPhoneNumber,
-                micEnabled: micTrack ? micTrack.enabled : false,
-                camEnabled: camTrack ? camTrack.enabled : false,
-                inCallWith: peerTargetNode
-            }));
-        }
+    // Dynamic Execution Protection Check
+    if (bannedRegistry.includes(sessionToken)) {
+        document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20vh;'>🚫 HARDWARE DISCONNECTOR VECTOR APPLIED: You are permanently banned from this ecosystem.</h1>";
+    }
 
-        // Prune Dead Node Arrays from Global Registries After Dynamic Signal Intermission
+    // Connect to MQTT Broker
+    const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+    const SYSTEM_PRESENCE = "web_dialer_presence_secure_prod_alpha_88";
+    const SYSTEM_COMMANDS = "web_dialer_commands_secure_prod_alpha_88"; // Partitioned channel
+
+    mqttClient.on('connect', () => {
+        mqttClient.subscribe(SYSTEM_PRESENCE);
+        mqttClient.subscribe(SYSTEM_COMMANDS);
+        
+        broadcastPresence();
+        setInterval(broadcastPresence, 2500);
+        
+        // Active Admin Anti-Collision Heartbeat System
         setInterval(() => {
-            const now = Date.now();
-            let stateMutated = false;
-            for (const t in activeUsersRegistry) {
-                if (now - activeUsersRegistry[t].lastSeen > 6000) {
-                    delete activeUsersRegistry[t];
-                    stateMutated = true;
-                }
+            if (amIAdminActive) {
+                mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "admin_heartbeat", token: sessionToken }));
             }
-            if (stateMutated) renderUserRegistry();
-            updateUptimeMetric();
-        }, 2000);
+        }, 1500);
+    });
 
-        function renderUserRegistry() {
-            const tbody = document.getElementById('user-registry-table-body');
-            const tokens = Object.keys(activeUsersRegistry);
-            document.getElementById('dash-active-users').innerText = tokens.length;
-            
-            let callsCount = 0;
-            tbody.innerHTML = "";
-            tokens.forEach(t => {
-                const node = activeUsersRegistry[t];
-                if (node.inCallWith !== "none") callsCount++;
-                const isSelf = t === sessionToken;
-                
-                tbody.innerHTML += `
-                    <tr>
-                        <td style="font-family:var(--font-mono); font-weight:600;">${t} ${isSelf ? '<span class="badge online">YOU</span>' : ''}</td>
-                        <td style="font-family:var(--font-mono);">${node.roomCode}</td>
-                        <td><span class="badge ${node.inCallWith !== 'none' ? 'incall' : 'online'}">${node.inCallWith !== 'none' ? 'LINKED TO ' + node.inCallWith : 'READY'}</span></td>
-                        <td>
-                            <span class="material-icons" style="font-size:16px; color:${node.micEnabled ? 'var(--success)' : 'var(--text-muted)'}">${node.micEnabled ? 'mic' : 'mic_off'}</span>
-                            <span class="material-icons" style="font-size:16px; color:${node.camEnabled ? 'var(--success)' : 'var(--text-muted)'}">${node.camEnabled ? 'videocam' : 'videocam_off'}</span>
-                        </td>
-                        <td>
-                            <button class="action-icon-btn" onclick="dialFromRegistry('${node.roomCode}')" title="Dial Extension Node"><span class="material-icons">phone</span></button>
-                            ${amIAdminActive ? `<button class="action-icon-btn" style="color:var(--danger);" onclick="adminKickNode('${t}')" title="Terminate Session Frame"><span class="material-icons">gavel</span></button>` : ''}
-                        </td>
-                    </tr>
-                `;
-            });
-            document.getElementById('dash-active-calls').innerText = Math.ceil(callsCount / 2);
-        }
-
-        // Processing Logic for Administrative Vectors
-        function handleIncomingSystemVectorCommands(cmd) {
-            if (cmd.type === "broadcast") {
-                pushNotification(`BROADCAST SYSTEM EVENT: ${cmd.message}`, "warning");
-                logSystemEvent(`Broadcast Notice Handled Payload: ${cmd.message}`, "warning");
-            }
-            if (cmd.target === sessionToken) {
-                if (cmd.type === "kick") {
-                    pushNotification("Administrative vector dropped current link layer execution context frame.", "danger");
-                    setTimeout(() => { location.reload(); }, 1500);
-                }
-            }
-        }
-
-        // Core Communication Interface Controls
-        function press(char) { document.getElementById('phone-screen').value += char; }
-        function clearScreen() { document.getElementById('phone-screen').value = ''; }
-        function dialFromRegistry(code) { document.getElementById('phone-screen').value = code; handleCall(); }
-
-        async function handleCall() {
-            const screen = document.getElementById('phone-screen');
-            const targetVal = screen.value.trim();
-
-            if (targetVal === ADMIN_TRIGGER) {
-                clearScreen();
-                const pwd = prompt("🔒 Enter System Security Access Key Vector Signature:");
-                const encodedHash = await evaluateCryptoPassword(pwd);
-                if (encodedHash === PASSWORD_HASH) {
-                    amIAdminActive = true;
-                    document.getElementById('admin-panel').style.display = 'flex';
-                    logSystemEvent("Overlord administrative visualization execution panel layer enabled.", "danger");
-                    renderUserRegistry();
-                } else {
-                    pushNotification("Security signature check failed. Unauthorized interaction vector denied.", "danger");
-                }
-                return;
-            }
-
-            if (currentCall) {
-                currentCall.close();
-                handleCallTerminationProcedure();
-                return;
-            }
-
-            if (!targetVal || !localStream) return;
-            logSystemEvent(`Emitting initialization peer request signal stream vector: [${targetVal}]`, "info");
-            peerTargetNode = targetVal;
-            
-            const call = peer.call(targetVal, localStream);
-            attachCallStreamListeners(call);
-            currentCall = call;
-            updateCallUIState(true);
-        }
-
-        peer.on('call', (call) => {
-            if (!localStream) return;
-            logSystemEvent(`Receiving incoming peer request handshake tracking ID: [${call.peer}]`, "info");
-            call.answer(localStream);
-            peerTargetNode = call.peer;
-            attachCallStreamListeners(call);
-            currentCall = call;
-            updateCallUIState(true);
-        });
-
-        function attachCallStreamListeners(call) {
-            call.on('stream', (remoteStream) => {
-                document.getElementById('remote-video').srcObject = remoteStream;
-                document.getElementById('remote-status-icon').style.color = "var(--success)";
-                document.getElementById('remote-status-icon').innerText = "videocam";
-                logSystemEvent("Remote media streaming matrix frames attached to rendering node interface canvas.", "success");
-            });
-            call.on('close', () => { handleCallTerminationProcedure(); });
-            
-            // WebRTC Runtime Processing Network Diagnostics Telemetry Polling Monitor Loop Loop Engine
-            const peerConnection = call.peerConnection;
-            const statsInterval = setInterval(() => {
-                if (!currentCall || call.connectionState === "closed") { clearInterval(statsInterval); return; }
-                peerConnection.getStats().then(stats => {
-                    stats.forEach(report => {
-                        if (report.type === "inbound-rtp" && report.kind === "video") {
-                            document.getElementById('rtc-bitrate').innerText = `${Math.round(report.bytesReceived / 1024)} kbps`;
-                            document.getElementById('rtc-jitter').innerText = `${Math.round(report.jitter * 1000)}ms`;
-                            document.getElementById('rtc-packet-loss').innerText = `${report.packetsLost || 0}`;
-                            document.getElementById('rtc-ice-state').innerText = peerConnection.iceConnectionState;
-                        }
-                    });
-                });
-            }, 2000);
-        }
-
-        function handleCallTerminationProcedure() {
-            document.getElementById('remote-video').srcObject = null;
-            document.getElementById('remote-status-icon').style.color = "var(--danger)";
-            document.getElementById('remote-status-icon').innerText = "videocam_off";
-            peerTargetNode = "none";
-            currentCall = null;
-            updateCallUIState(false);
-            logSystemEvent("Call transmission processing frame context drop terminated cleanly.", "info");
-        }
-
-        function updateCallUIState(inCall) {
-            const btn = document.getElementById('call-action');
-            const txt = document.getElementById('call-btn-text');
-            if (inCall) {
-                btn.classList.add('in-call'); txt.innerText = "TERMINATE LINK CONNECTION";
-            } else {
-                btn.classList.remove('in-call'); txt.innerText = "INITIALIZE LINK";
-            }
-            emitPresenceHeartbeat();
-        }
-
-        // Hardware Access Operations
-        async function initializeMediaDrivers() {
+    mqttClient.on('message', async (topic, message) => {
+        const rawMsg = message.toString();
+        
+        if (topic === SYSTEM_PRESENCE) {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                localStream = stream;
-                document.getElementById('local-video').srcObject = stream;
-                
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioSelect = document.getElementById('audio-input-select');
-                const videoSelect = document.getElementById('video-input-select');
-                
-                devices.forEach(dev => {
-                    const opt = document.createElement('option');
-                    opt.value = dev.deviceId;
-                    opt.text = dev.label || `${dev.kind} - Array Node Spec`;
-                    if (dev.kind === 'audioinput') audioSelect.appendChild(opt);
-                    if (dev.kind === 'videoinput') videoSelect.appendChild(opt);
-                });
-                
-                initializeAudioVolumeMeter(stream);
-                logSystemEvent("Hardware media pipelines verified and locked into browser layout context runtime.", "success");
-            } catch (e) {
-                logSystemEvent("Critical failure loading hardware device capabilities arrays.", "danger");
-                pushNotification("Hardware access failure.", "danger");
+                const data = JSON.parse(rawMsg);
+                activeUsersRegistry[data.token] = {
+                    roomCode: data.roomCode,
+                    micEnabled: data.micEnabled,
+                    camEnabled: data.camEnabled,
+                    inCallWith: data.inCallWith,
+                    lastSeen: Date.now()
+                };
+                updateAdminUI();
+            } catch(e) {}
+        }
+        
+        if (topic === SYSTEM_COMMANDS) {
+            try {
+                const cmd = JSON.parse(rawMsg);
+
+                // Anti-collision checking logic
+                if (cmd.type === "admin_heartbeat" && cmd.token !== sessionToken) {
+                    masterAdminToken = cmd.token; 
+                }
+
+                // Global commands loop execution
+                if (cmd.type === "broadcast") {
+                    const box = document.getElementById('announcement-box');
+                    box.innerText = "📣 SYSTEM NOTICE: " + cmd.message;
+                    box.style.display = 'block';
+                    setTimeout(() => { box.style.display = 'none'; }, 8000);
+                }
+                if (cmd.type === "toggle_theme") {
+                    document.body.classList.toggle('dark-theme');
+                }
+
+                // Target localized commands payload interceptor
+                if (cmd.target === sessionToken) {
+                    if (cmd.type === "kick") {
+                        alert("🔴 Admin disconnected your runtime session execution.");
+                        location.reload();
+                    }
+                    if (cmd.type === "ban") {
+                        bannedRegistry.push(sessionToken);
+                        localStorage.setItem('banned_nodes', JSON.stringify(bannedRegistry));
+                        document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20vh;'>🚫 Admin Applied Local Storage Cryptographic Node Ban.</h1>";
+                    }
+                    if (cmd.type === "lock_audio") {
+                        adminAudioLocked = true; setAudioState(false);
+                        document.getElementById('local-mic-btn').disabled = true;
+                    }
+                    if (cmd.type === "unlock_audio") {
+                        adminAudioLocked = false; document.getElementById('local-mic-btn').disabled = false;
+                    }
+                    if (cmd.type === "lock_video") {
+                        adminVideoLocked = true; setVideoState(false);
+                        document.getElementById('local-cam-btn').disabled = true;
+                    }
+                    if (cmd.type === "unlock_video") {
+                        adminVideoLocked = false; document.getElementById('local-cam-btn').disabled = false;
+                    }
+                    if (cmd.type === "redirect") {
+                        if(currentCall) currentCall.close();
+                        alert(`🔀 System Redirect Engine: Connecting you directly to Room ID [${cmd.connectTo}]`);
+                        const call = peer.call(cmd.connectTo, localStream);
+                        call.on('stream', function(remStream) {
+                            document.getElementById('remote-video').srcObject = remStream;
+                        });
+                        currentCall = call;
+                    }
+                }
+            } catch(e) {}
+        }
+    });
+
+    function broadcastPresence() {
+        const micOn = localStream && localStream.getAudioTracks().length > 0 && localStream.getAudioTracks()[0].enabled;
+        const camOn = localStream && localStream.getVideoTracks().length > 0 && localStream.getVideoTracks()[0].enabled;
+        
+        mqttClient.publish(SYSTEM_PRESENCE, JSON.stringify({
+            token: sessionToken,
+            roomCode: myPhoneNumber,
+            micEnabled: micOn,
+            camEnabled: camOn,
+            inCallWith: peerTargetNode
+        }));
+    }
+
+    // Dynamic Registry Pruning loop execution routines
+    setInterval(() => {
+        const now = Date.now();
+        let changed = false;
+        for (const t in activeUsersRegistry) {
+            if (now - activeUsersRegistry[t].lastSeen > 6000) {
+                delete activeUsersRegistry[t];
+                changed = true;
             }
         }
+        if (changed) updateAdminUI();
+    }, 2000);
 
-        function initializeAudioVolumeMeter(stream) {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const src = audioCtx.createMediaStreamSource(stream);
-            const analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 256;
-            src.connect(analyser);
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    function updateAdminUI() {
+        if (!amIAdminActive) return;
+        const listContainer = document.getElementById('user-list');
+        const countSpan = document.getElementById('active-count');
+        const tokens = Object.keys(activeUsersRegistry);
+        countSpan.innerText = tokens.length;
+
+        if (tokens.length === 0) {
+            listContainer.innerHTML = `<div class="user-item" style="color: #888; text-align: center;">No nodes mapping active signals.</div>`;
+            return;
+        }
+
+        listContainer.innerHTML = "";
+        tokens.forEach(t => {
+            const user = activeUsersRegistry[t];
+            const selfBadge = t === sessionToken ? " <span class='badge'>You</span>" : "";
+            const streamStateStr = `Call Route Target ID: [${user.inCallWith}]`;
             
-            function track() {
-                if(!localStream) return;
-                analyser.getByteFrequencyData(dataArray);
-                let sum = 0;
-                dataArray.forEach(v => sum += v);
-                const avg = sum / dataArray.length;
-                document.getElementById('vol-level').style.width = `${Math.min(avg * 2, 100)}%`;
-                requestAnimationFrame(track);
-            }
-            track();
-        }
+            listContainer.innerHTML += `
+                <div class="user-item">
+                    <div class="user-row">
+                        <span>Node Token Identification Array: <strong>${t}</strong>${selfBadge}</span>
+                        <span style="color: #25d366; font-weight: bold;">Dynamic Room ID: ${user.roomCode}</span>
+                    </div>
+                    <div class="user-row">
+                        <span style="font-size:11px; color:#c60000; font-weight:bold;">${streamStateStr}</span>
+                        <div class="admin-actions">
+                            <button class="action-btn spy" onclick="spyCall('${user.roomCode}')">Join Call</button>
+                            <button class="action-btn spy" style="background:#5856d6;" onclick="redirectCall('${t}')">Redirect to Me</button>
+                            <button class="action-btn mute" onclick="dispatchCmd('lock_audio', '${t}')">Mute</button>
+                            <button class="action-btn unmute" onclick="dispatchCmd('unlock_audio', '${t}')">Unmute</button>
+                            <button class="action-btn mute" onclick="dispatchCmd('lock_video', '${t}')">Kill Cam</button>
+                            <button class="action-btn unmute" onclick="dispatchCmd('unlock_video', '${t}')">Allow Cam</button>
+                            <button class="action-btn kick" onclick="dispatchCmd('kick', '${t}')">Kick</button>
+                            <button class="action-btn ban" onclick="dispatchCmd('ban', '${t}')">Ban Device</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
 
-        // Theme and UI Configuration Utilities
-        function switchTheme(theme) {
-            document.body.className = '';
-            if(theme !== 'theme-light') document.body.classList.add(theme);
-        }
+    // Cryptographic Password Evaluator Interface System (Web Crypto Api Integration)
+    async function evaluateCryptoPassword(input) {
+        const msgUint8 = new TextEncoder().encode(input);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
 
-        function copyRoomID() {
-            navigator.clipboard.writeText(myPhoneNumber);
-            pushNotification("Identity Key string copied successfully to platform clipboard array tracker.", "success");
-        }
+    function dispatchCmd(type, target, updates = {}) {
+        mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: type, target: target, ...updates }));
+    }
 
-        function pushNotification(msg, type = "info") {
-            const container = document.getElementById('toast-container');
-            const el = document.createElement('div');
-            el.className = 'toast';
-            el.style.borderLeftColor = type === 'success' ? 'var(--success)' : type === 'danger' ? 'var(--danger)' : 'var(--primary)';
-            el.innerHTML = `<span class="material-icons" style="color:var(--primary)">notifications</span> <span>${msg}</span>`;
-            container.appendChild(el);
-            setTimeout(() => { el.remove(); }, 4000);
-        }
+    function sendBroadcast() {
+        const msg = document.getElementById('broadcast-msg').value.trim();
+        if(!msg) return;
+        mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "broadcast", message: msg }));
+        document.getElementById('broadcast-msg').value = "";
+    }
+    function sendThemeToggle() { mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "toggle_theme" })); }
 
-        function logSystemEvent(msg, level = "info") {
-            const container = document.getElementById('system-event-runtime-log');
-            const timeStr = new Date().toISOString().substring(11, 19);
-            systemTelemetryEventLog.push({ time: timeStr, log: msg, integrity: level });
-            
-            const logLine = document.createElement('div');
-            logLine.innerHTML = `[${timeStr}] <span style="color:var(--${level === 'info' ? 'primary' : level})">// ${msg}</span>`;
-            container.appendChild(logLine);
-            container.scrollTop = container.scrollHeight;
-        }
+    // Admin Feature Extensions: Spy Eavesdropping / Redirect Engines
+    function spyCall(targetRoomId) {
+        if(currentCall) currentCall.close();
+        alert(`🕵️ Joining Call Matrix Pipeline for node room: [${targetRoomId}]`);
+        const call = peer.call(targetRoomId, localStream);
+        call.on('stream', function(remStream) {
+            document.getElementById('remote-video').srcObject = remStream;
+        });
+        currentCall = call;
+    }
 
-        function exportSystemLogs() {
-            const blob = new Blob([JSON.stringify(systemTelemetryEventLog, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = `COMMS_TELEMETRY_LOG_${sessionToken}.json`;
-            a.click();
-        }
+    function redirectCall(targetToken) {
+        dispatchCmd('redirect', targetToken, { connectTo: myPhoneNumber });
+    }
 
-        async function evaluateCryptoPassword(input) {
-            const encoder = new TextEncoder().encode(input);
-            const buf = await crypto.subtle.digest('SHA-256', encoder);
-            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    /* Device Driver Core Handlers */
+    function setAudioState(state) {
+        if (localStream && localStream.getAudioTracks().length > 0) {
+            localStream.getAudioTracks()[0].enabled = state;
+            document.getElementById('local-mic-btn').innerText = state ? "Mic: ON" : "Mic: OFF";
+            document.getElementById('local-mic-btn').className = state ? "control-btn" : "control-btn muted";
         }
-
-        function updateUptimeMetric() {
-            const diff = Date.now() - systemBootstrapTime;
-            const mins = Math.floor(diff / 60000).toString().padStart(2, '0');
-            const secs = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-            document.getElementById('dash-uptime').innerText = `${mins}:${secs}`;
-            document.getElementById('system-clock').innerText = new Date().toISOString().substring(11, 19) + " UTC";
+    }
+    function toggleLocalAudio() {
+        if (adminAudioLocked) return;
+        setAudioState(!localStream.getAudioTracks()[0].enabled);
+        broadcastPresence();
+    }
+    function setVideoState(state) {
+        if (localStream && localStream.getVideoTracks().length > 0) {
+            localStream.getVideoTracks()[0].enabled = state;
+            document.getElementById('local-cam-btn').innerText = state ? "Cam: ON" : "Cam: OFF";
+            document.getElementById('local-cam-btn').className = state ? "control-btn" : "control-btn muted";
         }
+    }
+    function toggleLocalVideo() {
+        if (adminVideoLocked) return;
+        setVideoState(!localStream.getVideoTracks()[0].enabled);
+        broadcastPresence();
+    }
 
-        function closeAdminPanel() { document.getElementById('admin-panel').style.display = 'none'; amIAdminActive = false; renderUserRegistry(); }
-        function adminKickNode(t) { mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "kick", target: t })); }
-        function submitGlobalBroadcast() {
-            const msg = document.getElementById('admin-broadcast-input').value.trim();
-            if(!msg) return;
-            mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "broadcast", message: msg }));
-            document.getElementById('admin-broadcast-input').value = '';
-        }
+    function press(num) { document.getElementById('phone-screen').value += num; }
+    function clearScreen() { document.getElementById('phone-screen').value = ''; }
 
-        // Visual Layout Graphs Framework Initialization
-        function initializeTelemetryGraphics() {
-            const ctx = document.getElementById('telemetryChart').getContext('2d');
-            telemetryChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Array(10).fill(''),
-                    datasets: [{ label: 'Cluster Track Usage', data: Array(10).fill(0), borderColor: '#007aff', tension: 0.4, fill: false }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 10 } } }
+    function initMedia() {
+        navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+            .then(s => { localStream = s; document.getElementById('local-video').srcObject = s; })
+            .catch(() => {
+                navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+                    .then(s => { localStream = s; });
             });
+    }
+    window.onload = initMedia;
 
-            setInterval(() => {
-                const count = Object.keys(activeUsersRegistry).length;
-                telemetryChartInstance.data.datasets[0].data.shift();
-                telemetryChartInstance.data.datasets[0].data.push(count);
-                telemetryChartInstance.update();
-            }, 3000);
+    peer.on('call', function(call) {
+        if (!localStream) return;
+        call.answer(localStream);
+        peerTargetNode = call.peer;
+        call.on('stream', function(s) { document.getElementById('remote-video').srcObject = s; });
+        currentCall = call;
+        updateUIForActiveCall();
+        broadcastPresence();
+    });
+
+    async function handleCall() {
+        const val = document.getElementById('phone-screen').value;
+        
+        if (val === ADMIN_TRIGGER) {
+            clearScreen();
+            
+            // Conflict check prior to authorization
+            if(masterAdminToken !== null) {
+                return alert("⛔ CRITICAL EXCLUSION: An active Admin Engine instance is currently running globally.");
+            }
+
+            const pwd = prompt("🔒 Enter Admin Security Access Password:");
+            const verifiedHash = await evaluateCryptoPassword(pwd);
+            
+            if (verifiedHash === PASSWORD_HASH) {
+                amIAdminActive = true;
+                document.getElementById('admin-panel').style.display = 'flex';
+                updateAdminUI();
+            } else {
+                alert("❌ ACCESS DENIED: Invalid Cryptographic Handshake Signature.");
+            }
+            return;
         }
 
-        window.onload = () => {
-            initializeMediaDrivers();
-            initializeTelemetryGraphics();
-            logSystemEvent("Structural enterprise software layers compiled.", "success");
-        };
-    </script>
+        if (currentCall) { currentCall.close(); location.reload(); return; }
+        if(!val || !localStream) return;
+
+        peerTargetNode = val;
+        const call = peer.call(val, localStream);
+        call.on('stream', function(s) { document.getElementById('remote-video').srcObject = s; });
+        currentCall = call;
+        updateUIForActiveCall();
+        broadcastPresence();
+    }
+
+    function updateUIForActiveCall() {
+        const btn = document.getElementById('call-action');
+        btn.innerText = "HANG UP"; btn.style.background = "#ff3b30";
+    }
+    function closeAdminPanel() {
+        document.getElementById('admin-panel').style.display = 'none';
+        amIAdminActive = false;
+    }
+</script>
 </body>
 </html>
