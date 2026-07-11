@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Video & Audio Dialer with Active Tracker</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; padding: 20px; box-sizing: border-box; }
+        .phone-container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0px 10px 25px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 320px; z-index: 10; margin-bottom: 20px; }
+        .screen { width: 100%; height: 50px; font-size: 24px; text-align: center; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; background-color: #fafafa; }
+        .status { font-size: 14px; color: #333; margin-bottom: 15px; font-weight: bold; background: #e7f3ff; padding: 8px; border-radius: 8px; display: inline-block; }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .btn { padding: 15px; font-size: 20px; border: none; background: #e4e6eb; border-radius: 50%; cursor: pointer; transition: 0.2s; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: auto; font-weight: bold; }
+        .btn:active { background: #d8dadf; }
+        .call-btn { background: #25d366; color: white; width: 100%; border: none; border-radius: 10px; height: 50px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .call-btn:active { background: #20ba5a; }
+        
+        /* Video Grid Layout */
+        .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; }
+        @media(max-width: 480px) { .video-grid { grid-template-columns: 1fr; } }
+        .video-wrapper { position: relative; background: #222; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        .video-label { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+
+        /* Admin Panel Modal Styling */
+        .admin-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
+        .admin-content { background: white; padding: 25px; border-radius: 20px; width: 90%; max-width: 450px; box-shadow: 0px 10px 30px rgba(0,0,0,0.3); text-align: left; }
+        .admin-content h2 { margin-top: 0; color: #ff3b30; font-size: 22px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; }
+        
+        .tracker-stats { display: flex; justify-content: space-between; background: #f0f2f5; padding: 10px 15px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; }
+        .user-list-container { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 10px; padding: 10px; background: #fafafa; margin-bottom: 20px; }
+        .user-item { padding: 8px 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+        .user-item:last-child { border-bottom: none; }
+        .admin-btn { padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; background: #ff3b30; color: white; width: 100%; font-size: 16px; }
+        .badge { background: #007aff; color: white; padding: 3px 8px; border-radius: 20px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<div class="phone-container">
+    <h3>Free Web Dialer</h3>
+    <div id="my-number" class="status">Generating ID...</div>
+    <input type="text" id="phone-screen" class="screen" placeholder="Enter ID to Dial" readonly />
+    
+    <div class="keypad">
+        <button class="btn" onclick="press('1')">1</button>
+        <button class="btn" onclick="press('2')">2</button>
+        <button class="btn" onclick="press('3')">3</button>
+        <button class="btn" onclick="press('4')">4</button>
+        <button class="btn" onclick="press('5')">5</button>
+        <button class="btn" onclick="press('6')">6</button>
+        <button class="btn" onclick="press('7')">7</button>
+        <button class="btn" onclick="press('8')">8</button>
+        <button class="btn" onclick="press('9')">9</button>
+        <button class="btn" onclick="press('*')">*</button>
+        <button class="btn" onclick="press('0')">0</button>
+        <button class="btn" onclick="clearScreen()">C</button>
+    </div>
+    
+    <button class="call-btn" id="call-action" onclick="handleCall()">START CALL</button>
+</div>
+
+<div class="video-grid">
+    <div class="video-wrapper">
+        <video id="local-video" autoplay muted playsinline></video>
+        <span class="video-label">You</span>
+    </div>
+    <div class="video-wrapper">
+        <video id="remote-video" autoplay playsinline></video>
+        <span class="video-label">Remote Friend</span>
+    </div>
+</div>
+
+<div id="admin-panel" class="admin-modal">
+    <div class="admin-content">
+        <h2>📊 Live Admin Monitor Panel</h2>
+        
+        <div class="tracker-stats">
+            <span>Active Users:</span>
+            <span id="active-count" style="color: #007aff;">1</span>
+        </div>
+
+        <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Discovered Room IDs:</label>
+        <div class="user-list-container" id="user-list">
+            <div class="user-item" style="color: #888; justify-content: center;">Waiting for presence pings...</div>
+        </div>
+        
+        <button class="admin-btn" onclick="closeAdminPanel()">Close Monitor</button>
+    </div>
+</div>
+
+<script>
+    const ADMIN_CODE = "1818";
+    // Unique session token to avoid tracking ourselves multiple times
+    const sessionToken = Math.random().toString(36).substring(2, 9);
+    const myPhoneNumber = Math.floor(1000 + Math.random() * 9000).toString();
+    
+    document.getElementById('my-number').innerText = "Your Number ID: " + myPhoneNumber;
+
+    const peer = new Peer(myPhoneNumber);
+    let currentCall = null;
+    let localStream = null;
+    
+    // Global tracking registry for the Admin Panel
+    let activeUsersRegistry = {}; 
+
+    // Connect to a public free MQTT broker via WebSockets to coordinate tracking
+    const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+    const TRACKING_TOPIC = "web_dialer_presence_demo_tracker_12345";
+
+    mqttClient.on('connect', () => {
+        // 1. Subscribe to the shared presence room
+        mqttClient.subscribe(TRACKING_TOPIC);
+        
+        // 2. Announce our presence immediately
+        broadcastPresence();
+        
+        // 3. Keep announcing every 3 seconds so the Admin Panel stays updated live
+        setInterval(broadcastPresence, 3000);
+    });
+
+    mqttClient.on('message', (topic, message) => {
+        if (topic === TRACKING_TOPIC) {
+            try {
+                const data = JSON.parse(message.toString());
+                // Save or update user tracking data with a fresh timestamp
+                activeUsersRegistry[data.token] = {
+                    roomCode: data.roomCode,
+                    lastSeen: Date.now()
+                };
+                updateAdminUI();
+            } catch(e) {}
+        }
+    });
+
+    function broadcastPresence() {
+        const presencePayload = {
+            token: sessionToken,
+            roomCode: myPhoneNumber
+        };
+        mqttClient.publish(TRACKING_TOPIC, JSON.stringify(presencePayload));
+    }
+
+    // Clean up expired users who haven't sent a ping in over 7 seconds (e.g. they closed the tab)
+    setInterval(() => {
+        const now = Date.now();
+        let changed = false;
+        for (const token in activeUsersRegistry) {
+            if (now - activeUsersRegistry[token].lastSeen > 7000) {
+                delete activeUsersRegistry[token];
+                changed = true;
+            }
+        }
+        if (changed) updateAdminUI();
+    }, 2000);
+
+    function updateAdminUI() {
+        const listContainer = document.getElementById('user-list');
+        const countSpan = document.getElementById('active-count');
+        
+        const tokens = Object.keys(activeUsersRegistry);
+        countSpan.innerText = tokens.length;
+
+        if (tokens.length === 0) {
+            listContainer.innerHTML = `<div class="user-item" style="color: #888; justify-content: center;">No active connections.</div>`;
+            return;
+        }
+
+        listContainer.innerHTML = "";
+        tokens.forEach(token => {
+            const user = activeUsersRegistry[token];
+            const isSelf = token === sessionToken ? " <span class='badge'>You</span>" : "";
+            
+            listContainer.innerHTML += `
+                <div class="user-item">
+                    <span>Session: <strong>${token}</strong>${isSelf}</span>
+                    <span style="color: #25d366; font-weight: bold;">Room ID: ${user.roomCode}</span>
+                </div>
+            `;
+        });
+    }
+
+    // Keypad logic functions
+    function press(num) { document.getElementById('phone-screen').value += num; }
+    function clearScreen() { document.getElementById('phone-screen').value = ''; }
+
+    // Media Setup
+    function initMedia() {
+        navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+            .then(function(stream) {
+                localStream = stream;
+                document.getElementById('local-video').srcObject = stream;
+            })
+            .catch(err => {
+                navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+                    .then(function(audioStream) {
+                        localStream = audioStream;
+                    });
+            });
+    }
+    window.onload = initMedia;
+
+    // Handle Incoming Connections
+    peer.on('call', function(call) {
+        if (!localStream) return;
+        call.answer(localStream);
+        call.on('stream', function(remoteStream) {
+            document.getElementById('remote-video').srcObject = remoteStream;
+        });
+        currentCall = call;
+        updateUIForActiveCall();
+    });
+
+    // Intercept Call / Open Admin Trigger
+    function handleCall() {
+        const targetNumber = document.getElementById('phone-screen').value;
+        
+        // Match Secret Trigger 1818
+        if (targetNumber === ADMIN_CODE) {
+            clearScreen();
+            openAdminPanel();
+            return;
+        }
+
+        if (currentCall) {
+            currentCall.close();
+            location.reload(); 
+            return;
+        }
+
+        if(!targetNumber || !localStream) return;
+
+        const call = peer.call(targetNumber, localStream);
+        call.on('stream', function(remoteStream) {
+            document.getElementById('remote-video').srcObject = remoteStream;
+        });
+        currentCall = call;
+        updateUIForActiveCall();
+    }
+
+    function updateUIForActiveCall() {
+        const actionBtn = document.getElementById('call-action');
+        actionBtn.innerText = "HANG UP";
+        actionBtn.style.background = "#ff3b30";
+    }
+
+    function openAdminPanel() {
+        document.getElementById('admin-panel').style.display = 'flex';
+        updateAdminUI();
+    }
+
+    function closeAdminPanel() {
+        document.getElementById('admin-panel').style.display = 'none';
+    }
+</script>
+
+</body>
+</html>
