@@ -3,17 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free Video & Audio Dialer with Active Tracker</title>
+    <title>Ultimate Video Dialer - Admin Dashboard Edition</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; padding: 20px; box-sizing: border-box; }
-        .phone-container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0px 10px 25px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 320px; z-index: 10; margin-bottom: 20px; }
-        .screen { width: 100%; height: 50px; font-size: 24px; text-align: center; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; background-color: #fafafa; }
+        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; padding: 20px; box-sizing: border-box; transition: background 0.5s, color 0.5s; }
+        .phone-container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0px 10px 25px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 320px; z-index: 10; margin-bottom: 20px; color: #333; }
+        .screen { width: 100%; height: 50px; font-size: 24px; text-align: center; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; background-color: #fafafa; color: #333; }
         .status { font-size: 14px; color: #333; margin-bottom: 15px; font-weight: bold; background: #e7f3ff; padding: 8px; border-radius: 8px; display: inline-block; }
         .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-        .btn { padding: 15px; font-size: 20px; border: none; background: #e4e6eb; border-radius: 50%; cursor: pointer; transition: 0.2s; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: auto; font-weight: bold; }
+        .btn { padding: 15px; font-size: 20px; border: none; background: #e4e6eb; border-radius: 50%; cursor: pointer; transition: 0.2s; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: auto; font-weight: bold; color: #333; }
         .btn:active { background: #d8dadf; }
+        
+        /* Local Controls for User */
+        .local-controls { display: flex; justify-content: space-around; margin-bottom: 15px; }
+        .control-btn { border: none; padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; background: #007aff; color: white; font-size: 13px; }
+        .control-btn.muted { background: #ff3b30; }
+        .control-btn:disabled { background: #8e8e93; cursor: not-allowed; }
+
         .call-btn { background: #25d366; color: white; width: 100%; border: none; border-radius: 10px; height: 50px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .call-btn:active { background: #20ba5a; }
         
@@ -24,26 +31,50 @@
         video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         .video-label { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
 
+        /* Global Announcement Bar */
+        .announcement-bar { display: none; width: 100%; max-width: 600px; background: #ffcc00; color: #000; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+        /* Dark Mode Extensions */
+        body.dark-theme { background-color: #1c1c1e; color: white; }
+        body.dark-theme .phone-container { background: #2c2c2e; color: white; }
+        body.dark-theme .screen { background: #3a3a3c; color: white; border-color: #48484a; }
+        body.dark-theme .btn { background: #3a3a3c; color: white; }
+
         /* Admin Panel Modal Styling */
-        .admin-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
-        .admin-content { background: white; padding: 25px; border-radius: 20px; width: 90%; max-width: 450px; box-shadow: 0px 10px 30px rgba(0,0,0,0.3); text-align: left; }
+        .admin-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; color: #333; }
+        .admin-content { background: white; padding: 25px; border-radius: 20px; width: 90%; max-width: 500px; box-shadow: 0px 10px 30px rgba(0,0,0,0.3); text-align: left; max-height: 85vh; overflow-y: auto; }
         .admin-content h2 { margin-top: 0; color: #ff3b30; font-size: 22px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; }
         
         .tracker-stats { display: flex; justify-content: space-between; background: #f0f2f5; padding: 10px 15px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; }
-        .user-list-container { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 10px; padding: 10px; background: #fafafa; margin-bottom: 20px; }
-        .user-item { padding: 8px 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+        .user-list-container { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 10px; padding: 10px; background: #fafafa; margin-bottom: 15px; }
+        .user-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
         .user-item:last-child { border-bottom: none; }
-        .admin-btn { padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; background: #ff3b30; color: white; width: 100%; font-size: 16px; }
+        .user-row { display: flex; justify-content: space-between; align-items: center; }
+        .admin-actions { display: flex; gap: 5px; }
+        .action-btn { border: none; padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: bold; cursor: pointer; color: white; }
+        .action-btn.kick { background: #ff3b30; }
+        .action-btn.mute { background: #ff9500; }
+        .action-btn.unmute { background: #34c759; }
+        
+        .admin-input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; margin-bottom: 10px; }
+        .admin-btn { padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; background: #ff3b30; color: white; width: 100%; font-size: 16px; margin-top: 10px; }
         .badge { background: #007aff; color: white; padding: 3px 8px; border-radius: 20px; font-size: 12px; }
     </style>
 </head>
 <body>
+
+<div id="announcement-box" class="announcement-bar"></div>
 
 <div class="phone-container">
     <h3>Free Web Dialer</h3>
     <div id="my-number" class="status">Generating ID...</div>
     <input type="text" id="phone-screen" class="screen" placeholder="Enter ID to Dial" readonly />
     
+    <div class="local-controls">
+        <button id="local-mic-btn" class="control-btn" onclick="toggleLocalAudio()">Mic: ON</button>
+        <button id="local-cam-btn" class="control-btn" onclick="toggleLocalVideo()">Cam: ON</button>
+    </div>
+
     <div class="keypad">
         <button class="btn" onclick="press('1')">1</button>
         <button class="btn" onclick="press('2')">2</button>
@@ -75,25 +106,31 @@
 
 <div id="admin-panel" class="admin-modal">
     <div class="admin-content">
-        <h2>📊 Live Admin Monitor Panel</h2>
+        <h2>📊 Live Admin Monitor & Control</h2>
         
         <div class="tracker-stats">
-            <span>Active Users:</span>
+            <span>Active Users Online:</span>
             <span id="active-count" style="color: #007aff;">1</span>
         </div>
 
-        <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Discovered Room IDs:</label>
+        <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Active Connections & Controls:</label>
         <div class="user-list-container" id="user-list">
-            <div class="user-item" style="color: #888; justify-content: center;">Waiting for presence pings...</div>
+            <div class="user-item" style="color: #888; text-align: center;">Waiting for pings...</div>
         </div>
         
-        <button class="admin-btn" onclick="closeAdminPanel()">Close Monitor</button>
+        <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Global Actions:</label>
+        <input type="text" id="broadcast-msg" class="admin-input" placeholder="Type a global announcement message...">
+        <div style="display: flex; gap: 10px;">
+            <button class="control-btn" style="flex: 1; background: #ffcc00; color: #000;" onclick="sendBroadcast()">Broadcast Notice</button>
+            <button class="control-btn" style="flex: 1; background: #5856d6;" onclick="sendThemeToggle()">Toggle All Themes</button>
+        </div>
+
+        <button class="admin-btn" onclick="closeAdminPanel()">Close Admin Dashboard</button>
     </div>
 </div>
 
 <script>
     const ADMIN_CODE = "1818";
-    // Unique session token to avoid tracking ourselves multiple times
     const sessionToken = Math.random().toString(36).substring(2, 9);
     const myPhoneNumber = Math.floor(1000 + Math.random() * 9000).toString();
     
@@ -103,47 +140,112 @@
     let currentCall = null;
     let localStream = null;
     
-    // Global tracking registry for the Admin Panel
+    // Remote Overrides State managed by Admin instructions
+    let adminAudioLocked = false;
+    let adminVideoLocked = false;
+
+    // Registry tracking object
     let activeUsersRegistry = {}; 
 
-    // Connect to a public free MQTT broker via WebSockets to coordinate tracking
+    // MQTT Setup
     const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-    const TRACKING_TOPIC = "web_dialer_presence_demo_tracker_12345";
+    const TRACKING_TOPIC = "web_dialer_presence_production_system_99812";
+    const COMMAND_TOPIC = TRACKING_TOPIC + "/commands";
 
     mqttClient.on('connect', () => {
-        // 1. Subscribe to the shared presence room
         mqttClient.subscribe(TRACKING_TOPIC);
+        mqttClient.subscribe(COMMAND_TOPIC);
         
-        // 2. Announce our presence immediately
         broadcastPresence();
-        
-        // 3. Keep announcing every 3 seconds so the Admin Panel stays updated live
         setInterval(broadcastPresence, 3000);
     });
 
     mqttClient.on('message', (topic, message) => {
+        const payloadString = message.toString();
+        
+        // Handle User Presence Updates
         if (topic === TRACKING_TOPIC) {
             try {
-                const data = JSON.parse(message.toString());
-                // Save or update user tracking data with a fresh timestamp
+                const data = JSON.parse(payloadString);
                 activeUsersRegistry[data.token] = {
                     roomCode: data.roomCode,
+                    micEnabled: data.micEnabled,
+                    camEnabled: data.camEnabled,
                     lastSeen: Date.now()
                 };
                 updateAdminUI();
             } catch(e) {}
         }
+        
+        // Handle Inbound Admin Inter-process Commands
+        if (topic === COMMAND_TOPIC) {
+            try {
+                const cmd = JSON.parse(payloadString);
+                
+                // Target-specific operations
+                if (cmd.target === sessionToken) {
+                    if (cmd.type === "kick") {
+                        alert("⚠️ You have been forcibly disconnected by the administrator.");
+                        location.reload();
+                    }
+                    
+                    if (cmd.type === "lock_audio") {
+                        adminAudioLocked = true;
+                        setAudioState(false);
+                        document.getElementById('local-mic-btn').disabled = true;
+                        alert("🔒 An administrator has disabled and locked your microphone.");
+                    }
+                    
+                    if (cmd.type === "unlock_audio") {
+                        adminAudioLocked = false;
+                        document.getElementById('local-mic-btn').disabled = false;
+                        alert("🔓 An administrator has unlocked your microphone controls.");
+                    }
+
+                    if (cmd.type === "lock_video") {
+                        adminVideoLocked = true;
+                        setVideoState(false);
+                        document.getElementById('local-cam-btn').disabled = true;
+                        alert("🔒 An administrator has disabled and locked your camera.");
+                    }
+                    
+                    if (cmd.type === "unlock_video") {
+                        adminVideoLocked = false;
+                        document.getElementById('local-cam-btn').disabled = false;
+                        alert("🔓 An administrator has unlocked your camera controls.");
+                    }
+                }
+
+                // Global operations
+                if (cmd.type === "broadcast") {
+                    const box = document.getElementById('announcement-box');
+                    box.innerText = "📣 ADMIN NOTICE: " + cmd.message;
+                    box.style.display = 'block';
+                    setTimeout(() => { box.style.display = 'none'; }, 10000); // hide after 10s
+                }
+
+                if (cmd.type === "toggle_theme") {
+                    document.body.classList.toggle('dark-theme');
+                }
+
+            } catch(e) {}
+        }
     });
 
     function broadcastPresence() {
+        const micOn = localStream && localStream.getAudioTracks().length > 0 && localStream.getAudioTracks()[0].enabled;
+        const camOn = localStream && localStream.getVideoTracks().length > 0 && localStream.getVideoTracks()[0].enabled;
+        
         const presencePayload = {
             token: sessionToken,
-            roomCode: myPhoneNumber
+            roomCode: myPhoneNumber,
+            micEnabled: micOn,
+            camEnabled: camOn
         };
         mqttClient.publish(TRACKING_TOPIC, JSON.stringify(presencePayload));
     }
 
-    // Clean up expired users who haven't sent a ping in over 7 seconds (e.g. they closed the tab)
+    // Dynamic User Scrubber
     setInterval(() => {
         const now = Date.now();
         let changed = false;
@@ -156,6 +258,7 @@
         if (changed) updateAdminUI();
     }, 2000);
 
+    // Render Admin Interface Loop
     function updateAdminUI() {
         const listContainer = document.getElementById('user-list');
         const countSpan = document.getElementById('active-count');
@@ -164,7 +267,7 @@
         countSpan.innerText = tokens.length;
 
         if (tokens.length === 0) {
-            listContainer.innerHTML = `<div class="user-item" style="color: #888; justify-content: center;">No active connections.</div>`;
+            listContainer.innerHTML = `<div class="user-item" style="color: #888; text-align: center;">No active connections.</div>`;
             return;
         }
 
@@ -175,18 +278,79 @@
             
             listContainer.innerHTML += `
                 <div class="user-item">
-                    <span>Session: <strong>${token}</strong>${isSelf}</span>
-                    <span style="color: #25d366; font-weight: bold;">Room ID: ${user.roomCode}</span>
+                    <div class="user-row">
+                        <span>Session: <strong>${token}</strong>${isSelf}</span>
+                        <span style="color: #25d366; font-weight: bold;">Room ID: ${user.roomCode}</span>
+                    </div>
+                    <div class="user-row">
+                        <span style="font-size:11px; color:#555;">Mic: ${user.micEnabled ? '🟢 ON' : '🔴 OFF'} | Cam: ${user.camEnabled ? '🟢 ON' : '🔴 OFF'}</span>
+                        <div class="admin-actions">
+                            <button class="action-btn mute" onclick="dispatchCommand('lock_audio', '${token}')">Lock Mic</button>
+                            <button class="action-btn unmute" onclick="dispatchCommand('unlock_audio', '${token}')">Unlock Mic</button>
+                            <button class="action-btn mute" onclick="dispatchCommand('lock_video', '${token}')">Lock Cam</button>
+                            <button class="action-btn unmute" onclick="dispatchCommand('unlock_video', '${token}')">Unlock Cam</button>
+                            <button class="action-btn kick" onclick="dispatchCommand('kick', '${token}')">Kick</button>
+                        </div>
+                    </div>
                 </div>
             `;
         });
     }
 
-    // Keypad logic functions
+    // Publish Commands to Broker
+    function dispatchCommand(type, targetToken) {
+        const payload = { type: type, target: targetToken };
+        mqttClient.publish(COMMAND_TOPIC, JSON.stringify(payload));
+    }
+
+    function sendBroadcast() {
+        const msg = document.getElementById('broadcast-msg').value.trim();
+        if(!msg) return;
+        mqttClient.publish(COMMAND_TOPIC, JSON.stringify({ type: "broadcast", message: msg }));
+        document.getElementById('broadcast-msg').value = "";
+    }
+
+    function sendThemeToggle() {
+        mqttClient.publish(COMMAND_TOPIC, JSON.stringify({ type: "toggle_theme" }));
+    }
+
+    /* Local Device Stream Handlers */
+    function setAudioState(state) {
+        if (localStream && localStream.getAudioTracks().length > 0) {
+            localStream.getAudioTracks()[0].enabled = state;
+            const btn = document.getElementById('local-mic-btn');
+            btn.innerText = state ? "Mic: ON" : "Mic: OFF";
+            if(!state) btn.classList.add('muted'); else btn.classList.remove('muted');
+        }
+    }
+
+    function toggleLocalAudio() {
+        if (adminAudioLocked) return;
+        const current = localStream.getAudioTracks()[0].enabled;
+        setAudioState(!current);
+        broadcastPresence();
+    }
+
+    function setVideoState(state) {
+        if (localStream && localStream.getVideoTracks().length > 0) {
+            localStream.getVideoTracks()[0].enabled = state;
+            const btn = document.getElementById('local-cam-btn');
+            btn.innerText = state ? "Cam: ON" : "Cam: OFF";
+            if(!state) btn.classList.add('muted'); else btn.classList.remove('muted');
+        }
+    }
+
+    function toggleLocalVideo() {
+        if (adminVideoLocked) return;
+        const current = localStream.getVideoTracks()[0].enabled;
+        setVideoState(!current);
+        broadcastPresence();
+    }
+
+    // Dial handling & Screen inputs
     function press(num) { document.getElementById('phone-screen').value += num; }
     function clearScreen() { document.getElementById('phone-screen').value = ''; }
 
-    // Media Setup
     function initMedia() {
         navigator.mediaDevices.getUserMedia({ audio: true, video: true })
             .then(function(stream) {
@@ -202,7 +366,6 @@
     }
     window.onload = initMedia;
 
-    // Handle Incoming Connections
     peer.on('call', function(call) {
         if (!localStream) return;
         call.answer(localStream);
@@ -213,11 +376,9 @@
         updateUIForActiveCall();
     });
 
-    // Intercept Call / Open Admin Trigger
     function handleCall() {
         const targetNumber = document.getElementById('phone-screen').value;
         
-        // Match Secret Trigger 1818
         if (targetNumber === ADMIN_CODE) {
             clearScreen();
             openAdminPanel();
