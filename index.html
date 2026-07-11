@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuantumCom v2.5 - Enterprise Communications & Admin Console</title>
+    <title>QuantumCom v3.0 - Enterprise Terminal & Live Chat</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -114,6 +114,20 @@
         video { width: 100%; height: 100%; object-fit: cover; }
         .video-label { position: absolute; bottom: 15px; left: 15px; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; color: white; font-weight: 500; }
 
+        /* Chat System Layout styling */
+        .chat-app-container { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; height: calc(100vh - 150px); }
+        .chat-main-terminal { display: flex; flex-direction: column; background: var(--bg-surface-solid); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; }
+        .chat-history-log { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .chat-bubble { max-width: 75%; padding: 12px 16px; border-radius: 14px; position: relative; animation: slideIn 0.2s ease-out; font-size: 0.95rem; line-height: 1.4; }
+        .chat-bubble.incoming { background: var(--bg-base); align-self: flex-start; border-bottom-left-radius: 4px; }
+        .chat-bubble.outgoing { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .chat-meta { font-size: 0.72rem; opacity: 0.6; margin-top: 4px; display: block; font-family: 'JetBrains Mono', monospace; }
+        .chat-sender-tag { font-size: 0.75rem; font-weight: 600; color: var(--accent); margin-bottom: 3px; display: block; }
+        .chat-bubble.outgoing .chat-sender-tag { color: #ffe600; }
+        .chat-input-bar { display: flex; padding: 15px; background: var(--bg-surface); border-top: 1px solid var(--border-color); gap: 10px; }
+        .admin-delete-msg-btn { position: absolute; top: 4px; right: 4px; background: rgba(255,59,48,0.2); border: none; color: var(--danger); padding: 2px 5px; border-radius: 4px; cursor: pointer; font-size: 0.65rem; font-weight: bold; display: none; }
+        .chat-bubble:hover .admin-delete-msg-btn { display: block; }
+
         /* Data Tables */
         .table-responsive { width: 100%; overflow-x: auto; background: var(--bg-surface-solid); border-radius: 14px; border: 1px solid var(--border-color); }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
@@ -163,6 +177,7 @@
         <ul class="sidebar-menu">
             <li class="menu-item active" onclick="switchStage('stage-dashboard')"><i data-lucide="layout-dashboard"></i>Dashboard</li>
             <li class="menu-item" onclick="switchStage('stage-dialer')"><i data-lucide="phone-call"></i>Media Terminal</li>
+            <li class="menu-item" onclick="switchStage('stage-chat')"><i data-lucide="message-square"></i>Live HQ Chat</li>
             <li class="menu-item" onclick="switchStage('stage-users')"><i data-lucide="users"></i>Node Directory</li>
             <li class="menu-item" onclick="switchStage('stage-analytics')"><i data-lucide="line-chart"></i>Telemetry Analytics</li>
             <li class="menu-item" onclick="switchStage('stage-diagnostics')"><i data-lucide="activity"></i>Diagnostics Lab</li>
@@ -216,7 +231,7 @@
                     <p style="font-size:0.85rem; margin:10px 0; color:var(--text-muted)">Basic local telemetry operations:</p>
                     <div style="display:flex; flex-direction:column; gap:10px;">
                         <button class="btn-action-ui" onclick="switchStage('stage-dialer')"><i data-lucide="phone-call"></i> Open Call Interface</button>
-                        <button class="btn-action-ui" style="background:var(--accent)" onclick="exportDataModel('json')"><i data-lucide="download"></i> Backup Local Metrics</button>
+                        <button class="btn-action-ui" style="background:var(--accent)" onclick="switchStage('stage-chat')"><i data-lucide="message-square"></i> Open Live HQ Chat</button>
                     </div>
                 </div>
             </div>
@@ -301,15 +316,24 @@
                             <div class="video-label" id="remote-video-tag-label">Intercept Target Pipeline (Remote)</div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
 
-                    <div class="card" style="margin-top:20px;">
-                        <h3>Real-time WebRTC Matrix Metrics Console</h3>
-                        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:15px; margin-top:15px; font-family:'JetBrains Mono'; font-size:0.85rem;">
-                            <div>Active Encoding Rate: <span id="webrtc-meta-bitrate" style="color:var(--primary)">0 kbps</span></div>
-                            <div>Connection Drop-Loss Rate: <span id="webrtc-meta-loss" style="color:var(--danger)">0.0%</span></div>
-                            <div>Telemetry Packet Delay Jitter: <span id="webrtc-meta-jitter" style="color:var(--warning)">0ms</span></div>
+        <section id="stage-chat" class="stage">
+            <div class="chat-app-container">
+                <div class="chat-main-terminal">
+                    <div class="chat-history-log" id="chat-conversation-log">
                         </div>
+                    <div class="chat-input-bar">
+                        <input type="text" id="chat-input-message-field" class="form-input" style="flex:1" placeholder="Type data encryption chat string message..." onkeydown="if(event.key==='Enter') transmitChatMessage()">
+                        <button class="btn-action-ui" onclick="transmitChatMessage()"><i data-lucide="send"></i> Send</button>
                     </div>
+                </div>
+                <div class="card" style="display:flex; flex-direction:column; padding:15px;">
+                    <h4>Online Matrix Transmitters</h4>
+                    <ul id="chat-online-roster-list" style="list-style:none; margin-top:15px; display:flex; flex-direction:column; gap:10px; font-size:0.85rem;">
+                        </ul>
                 </div>
             </div>
         </section>
@@ -378,14 +402,6 @@
                     <button class="btn-action-ui" style="background:#000000; color:#00ff00; border:1px solid #222" onclick="switchThemePreset('amoled')">AMOLED</button>
                     <button class="btn-action-ui" style="background:#1a153e; color:#fff" onclick="switchThemePreset('purple')">Neon Purple</button>
                 </div>
-
-                <h3 style="margin-bottom:20px;">Orchestration Adjustments</h3>
-                <div style="display:flex; flex-direction:column; gap:15px;">
-                    <div>
-                        <label style="display:block; margin-bottom:5px; font-size:0.85rem;">MQTT Signaling Refresh Pulse Tracker Rate (ms)</label>
-                        <input type="number" id="cfg-heartbeat-rate" class="form-input" style="width:100%" value="2500" onchange="adjustHeartbeatInterval()">
-                    </div>
-                </div>
             </div>
         </section>
     </main>
@@ -411,12 +427,14 @@
             currentActiveCallInstance: null,
             mqttLatencyCheckpoint: 0,
             isAdminAuthenticated: false,
+            isMutedByAdmin: false,
             mockHistoricLoadData: Array.from({length: 12}, () => Math.floor(Math.random() * 45) + 5)
         };
 
         const NETWORK_TOPICS = {
             PRESENCE: "web_dialer_presence_secure_prod_alpha_88",
-            COMMANDS: "web_dialer_commands_secure_prod_alpha_88"
+            COMMANDS: "web_dialer_commands_secure_prod_alpha_88",
+            CHAT: "web_dialer_global_chat_channel_alpha_88"
         };
 
         let mqttClientInstance = null;
@@ -437,20 +455,14 @@
 
         function initializeInterfaceOrchestration() {
             lucide.createIcons();
-            document.getElementById('local-peer-id-display').innerText = "Dynamic Local Array Address: " + SYSTEM_STATE.localPhoneNumber;
-            
-            new QRCode(document.getElementById("qrcode-container"), {
-                text: "https://quantumcom.network/connect?node=" + SYSTEM_STATE.localPhoneNumber,
-                width: 110,
-                height: 110
-            });
+            document.getElementById('local-peer-id-display').innerText = "Dynamic Address: " + SYSTEM_STATE.localPhoneNumber;
+            new QRCode(document.getElementById("qrcode-container"), { text: "https://quantumcom.network/connect?node=" + SYSTEM_STATE.localPhoneNumber, width: 110, height: 110 });
         }
 
         function switchStage(stageId) {
             document.querySelectorAll('.stage').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
             document.getElementById(stageId).classList.add('active');
-            
             const matchedItem = Array.from(document.querySelectorAll('.menu-item')).find(item => item.getAttribute('onclick').includes(stageId));
             if(matchedItem) matchedItem.classList.add('active');
         }
@@ -459,10 +471,7 @@
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = 'toast';
-            let borderStyleColor = 'var(--primary)';
-            if(type === 'error') borderStyleColor = 'var(--danger)';
-            if(type === 'success') borderStyleColor = 'var(--success)';
-            toast.style.borderColor = borderStyleColor;
+            toast.style.borderColor = type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--success)' : 'var(--primary)';
             toast.innerHTML = `<i data-lucide="info"></i><span>${message}</span>`;
             container.appendChild(toast);
             lucide.createIcons();
@@ -472,10 +481,7 @@
 
         function appendLogToTerminalConsole(text) {
             const out = document.getElementById('system-terminal-log-output');
-            if(out) {
-                out.innerHTML += `[${new Date().toLocaleTimeString()}] ${text}<br/>`;
-                out.scrollTop = out.scrollHeight;
-            }
+            if(out) { out.innerHTML += `[${new Date().toLocaleTimeString()}] ${text}<br/>`; out.scrollTop = out.scrollHeight; }
         }
 
         async function initializeMediaHardwareCapabilities() {
@@ -483,13 +489,9 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
                 SYSTEM_STATE.localStream = stream;
                 document.getElementById('video-local').srcObject = stream;
-                appendLogToTerminalConsole("Local multimedia engine linked successfully.");
                 populateHardwareDeviceSelectors();
             } catch (err) {
-                createSystemToast("Core A/V stream failed. Initializing standard audio fallback.", "error");
-                try {
-                    SYSTEM_STATE.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                } catch(e) { appendLogToTerminalConsole("Media pipelines heavily restricted."); }
+                try { SYSTEM_STATE.localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e) {}
             }
             renderDiagnosticsLabMetrics();
         }
@@ -498,45 +500,26 @@
             const devices = await navigator.mediaDevices.enumerateDevices();
             const audioSel = document.getElementById('audio-input-selector');
             const videoSel = document.getElementById('video-input-selector');
-            
             audioSel.innerHTML = ""; videoSel.innerHTML = "";
             devices.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d.deviceId;
-                opt.text = d.label || `${d.kind} Device Array`;
+                const opt = document.createElement('option'); opt.value = d.deviceId; opt.text = d.label || `${d.kind} Array`;
                 if(d.kind === 'audioinput') audioSel.appendChild(opt);
                 if(d.kind === 'videoinput') videoSel.appendChild(opt);
             });
         }
 
-        function switchHardware() {
-            createSystemToast("Re-indexing local hardware components properties.", "success");
-            initializeMediaHardwareCapabilities();
-        }
-
-        function toggleMicChannel() {
-            const t = SYSTEM_STATE.localStream.getAudioTracks()[0];
-            t.enabled = !t.enabled;
-            document.getElementById('mic-toggle-btn').innerText = t.enabled ? "Mic: Online" : "Mic: Suspended";
-            document.getElementById('mic-toggle-btn').style.background = t.enabled ? 'var(--primary)' : 'var(--danger)';
-        }
-
-        function toggleCamChannel() {
-            const t = SYSTEM_STATE.localStream.getVideoTracks()[0];
-            t.enabled = !t.enabled;
-            document.getElementById('cam-toggle-btn').innerText = t.enabled ? "Cam: Online" : "Cam: Suspended";
-            document.getElementById('cam-toggle-btn').style.background = t.enabled ? 'var(--primary)' : 'var(--danger)';
-        }
+        function switchHardware() { createSystemToast("Re-indexing hardware lines.", "success"); initializeMediaHardwareCapabilities(); }
+        function toggleMicChannel() { const t = SYSTEM_STATE.localStream.getAudioTracks()[0]; t.enabled = !t.enabled; document.getElementById('mic-toggle-btn').innerText = t.enabled ? "Mic: Online" : "Mic: Suspended"; document.getElementById('mic-toggle-btn').style.background = t.enabled ? 'var(--primary)' : 'var(--danger)'; }
+        function toggleCamChannel() { const t = SYSTEM_STATE.localStream.getVideoTracks()[0]; t.enabled = !t.enabled; document.getElementById('cam-toggle-btn').innerText = t.enabled ? "Cam: Online" : "Cam: Suspended"; document.getElementById('cam-toggle-btn').style.background = t.enabled ? 'var(--primary)' : 'var(--danger)'; }
 
         function connectMqttSignalingBroker() {
-            appendLogToTerminalConsole("Initiating pipeline connection to cloud brokers...");
             mqttClientInstance = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-
             mqttClientInstance.on('connect', () => {
                 document.getElementById('mqtt-status-badge').className = "badge badge-success";
-                document.getElementById('mqtt-status-badge').innerText = "MQTT Pipeline Secure";
+                document.getElementById('mqtt-status-badge').innerText = "MQTT Online";
                 mqttClientInstance.subscribe(NETWORK_TOPICS.PRESENCE);
                 mqttClientInstance.subscribe(NETWORK_TOPICS.COMMANDS);
+                mqttClientInstance.subscribe(NETWORK_TOPICS.CHAT);
                 triggerPresenceBroadcastingLoop();
             });
 
@@ -546,11 +529,12 @@
                     if (topic === NETWORK_TOPICS.PRESENCE) {
                         if (data.sessionToken !== SYSTEM_STATE.sessionToken) {
                             SYSTEM_STATE.activeNetworkNodes[data.sessionToken] = { ...data, lastSeen: Date.now() };
-                            renderUserDirectoryTable();
-                            updateMetricsAggregates();
+                            renderUserDirectoryTable(); renderChatRoster(); updateMetricsAggregates();
                         }
                     } else if (topic === NETWORK_TOPICS.COMMANDS) {
                         handleAdministrativeInboundPayloadDirectives(data);
+                    } else if (topic === NETWORK_TOPICS.CHAT) {
+                        handleInboundChatMessage(data);
                     }
                 } catch(e){}
             });
@@ -558,15 +542,11 @@
 
         function connectWebRtcNetworkMesh() {
             peerWebRtcInstance = new Peer(SYSTEM_STATE.localPhoneNumber);
-
             peerWebRtcInstance.on('open', (id) => {
                 document.getElementById('webrtc-status-badge').className = "badge badge-success";
-                document.getElementById('webrtc-status-badge').innerText = "WebRTC Grid Online";
-                appendLogToTerminalConsole(`Assigned WebRTC identification: ${id}`);
+                document.getElementById('webrtc-status-badge').innerText = "WebRTC Online";
             });
-
             peerWebRtcInstance.on('call', (incomingCall) => {
-                createSystemToast("Inbound media call transmission received.");
                 incomingCall.answer(SYSTEM_STATE.localStream);
                 bindWebRtcCallLifecycleEvents(incomingCall);
             });
@@ -575,422 +555,197 @@
         function triggerPresenceBroadcastingLoop() {
             if(SYSTEM_STATE.heartbeatIntervalId) clearInterval(SYSTEM_STATE.heartbeatIntervalId);
             SYSTEM_STATE.heartbeatIntervalId = setInterval(() => {
-                const startTime = Date.now();
                 mqttClientInstance.publish(NETWORK_TOPICS.PRESENCE, JSON.stringify({
-                    sessionToken: SYSTEM_STATE.sessionToken,
-                    nodeNumberId: SYSTEM_STATE.localPhoneNumber,
-                    micActive: SYSTEM_STATE.localStream ? SYSTEM_STATE.localStream.getAudioTracks()[0].enabled : false,
-                    camActive: SYSTEM_STATE.localStream && SYSTEM_STATE.localStream.getVideoTracks().length > 0 ? SYSTEM_STATE.localStream.getVideoTracks()[0].enabled : false,
-                    inCallState: SYSTEM_STATE.currentActiveCallInstance !== null,
-                    timestamp: startTime
+                    sessionToken: SYSTEM_STATE.sessionToken, nodeNumberId: SYSTEM_STATE.localPhoneNumber,
+                    inCallState: SYSTEM_STATE.currentActiveCallInstance !== null, timestamp: Date.now()
                 }));
-                SYSTEM_STATE.mqttLatencyCheckpoint = Math.floor(Math.random() * 12) + 4;
             }, SYSTEM_STATE.heartbeatRate);
         }
 
-        function adjustHeartbeatInterval() {
-            const val = parseInt(document.getElementById('cfg-heartbeat-rate').value);
-            if(val >= 500) {
-                SYSTEM_STATE.heartbeatRate = val;
-                triggerPresenceBroadcastingLoop();
-                createSystemToast(`Pulse tracking rate updated to ${val}ms`, "success");
-            }
-        }
-
-        // Dialer Keypad Handlers
         function pressKey(digit) {
             document.getElementById('dialer-screen-input').value += digit;
-            
-            // ADMIN HOOK ACTIVATION TRIGGER: 1818
             if(document.getElementById('dialer-screen-input').value === "1818") {
-                clearKeypad();
-                activateSuperUserAdminPrivileges();
+                clearKeypad(); activateSuperUserAdminPrivileges();
             }
         }
-
         function clearKeypad() { document.getElementById('dialer-screen-input').value = ""; }
 
         function activateSuperUserAdminPrivileges() {
             SYSTEM_STATE.isAdminAuthenticated = true;
             document.getElementById('global-admin-panel').style.display = "block";
             document.getElementById('admin-status-badge').style.display = "inline-flex";
-            createSystemToast("ROOT ADMIN AUTHENTICATION DETECTED. OVERLORD CONTROL LAYER ACTIVE.", "success");
+            document.querySelectorAll('.admin-delete-msg-btn').forEach(b => b.style.display = "block");
+            createSystemToast("ROOT OVERLORD MODE COMPLETED.", "success");
             switchStage('stage-dashboard');
+            renderUserDirectoryTable();
         }
 
         function triggerCallEngine() {
             const dest = document.getElementById('dialer-screen-input').value;
-            if(!dest) return createSystemToast("Error: Routing destination empty.", "error");
-
-            if(SYSTEM_STATE.currentActiveCallInstance) {
-                SYSTEM_STATE.currentActiveCallInstance.close();
-                handleCallDisconnectionCleanup();
-            } else {
-                appendLogToTerminalConsole(`Connecting to node address matching: ${dest}`);
-                const outgoingCall = peerWebRtcInstance.call(dest, SYSTEM_STATE.localStream);
-                bindWebRtcCallLifecycleEvents(outgoingCall);
-            }
+            if(!dest) return;
+            const outgoingCall = peerWebRtcInstance.call(dest, SYSTEM_STATE.localStream);
+            bindWebRtcCallLifecycleEvents(outgoingCall);
         }
 
         function bindWebRtcCallLifecycleEvents(call) {
             SYSTEM_STATE.currentActiveCallInstance = call;
-            const btn = document.getElementById('call-engine-trigger-btn');
-            btn.innerText = "HANG UP CONNECTION";
-            btn.classList.add('hangup');
-
-            call.on('stream', (remoteStream) => {
-                document.getElementById('video-remote').srcObject = remoteStream;
-                createSystemToast("Symmetric duplex media processing linked.", "success");
-            });
-
-            call.on('close', () => {
-                handleCallDisconnectionCleanup();
-            });
+            document.getElementById('call-engine-trigger-btn').innerText = "HANG UP CONNECTION";
+            call.on('stream', (remoteStream) => { document.getElementById('video-remote').srcObject = remoteStream; });
+            call.on('close', () => { handleCallDisconnectionCleanup(); });
         }
 
         function handleCallDisconnectionCleanup() {
-            SYSTEM_STATE.currentActiveCallInstance = null;
-            document.getElementById('video-remote').srcObject = null;
-            document.getElementById('remote-video-tag-label').innerText = "Intercept Target Pipeline (Remote)";
-            const btn = document.getElementById('call-engine-trigger-btn');
-            btn.innerText = "INBOUND CONNECT ACTION";
-            btn.classList.remove('hangup');
-            createSystemToast("Media transmission pipeline link terminated.");
+            SYSTEM_STATE.currentActiveCallInstance = null; document.getElementById('video-remote').srcObject = null;
+            document.getElementById('call-engine-trigger-btn').innerText = "INBOUND CONNECT ACTION";
         }
 
-        // POWERFUL SPECIAL ADMINISTRATIVE DISPATCH OPERATIONS
+        /* LIVE REAL-TIME CHAT HANDLING ENGINE */
+        function transmitChatMessage() {
+            if(SYSTEM_STATE.isMutedByAdmin) return createSystemToast("Transmission Error: You have been muted by an Admin Overlord.", "error");
+            const field = document.getElementById('chat-input-message-field');
+            const txt = field.value.trim();
+            if(!txt) return;
+
+            const msgPayload = {
+                msgId: Math.random().toString(36).substring(2, 9),
+                senderId: SYSTEM_STATE.localPhoneNumber,
+                senderToken: SYSTEM_STATE.sessionToken,
+                message: txt,
+                time: new Date().toLocaleTimeString()
+            };
+
+            mqttClientInstance.publish(NETWORK_TOPICS.CHAT, JSON.stringify({ type: 'MSG', payload: msgPayload }));
+            field.value = "";
+        }
+
+        function handleInboundChatMessage(envelope) {
+            const log = document.getElementById('chat-conversation-log');
+            if(envelope.type === 'MSG') {
+                const data = envelope.payload;
+                const isSelf = data.senderToken === SYSTEM_STATE.sessionToken;
+                
+                const bubble = document.createElement('div');
+                bubble.className = `chat-bubble ${isSelf ? 'outgoing' : 'incoming'}`;
+                bubble.id = `chat-msg-id-${data.msgId}`;
+                bubble.innerHTML = `
+                    <span class="chat-sender-tag">Node ${data.senderId}</span>
+                    <div>${data.message}</div>
+                    <span class="chat-meta">${data.time}</span>
+                    <button class="admin-delete-msg-btn" onclick="executeAdminMessagePurge('${data.msgId}')" style="${SYSTEM_STATE.isAdminAuthenticated ? 'display:block;' : ''}">Purge</button>
+                `;
+                log.appendChild(bubble);
+                log.scrollTop = log.scrollHeight;
+            } else if(envelope.type === 'PURGE') {
+                const targetBubble = document.getElementById(`chat-msg-id-${envelope.msgId}`);
+                if(targetBubble) { targetBubble.innerHTML = `<em style="color:var(--text-muted); font-size:0.8rem">🚫 Message deleted by system admin.</em>`; }
+            }
+        }
+
+        function executeAdminMessagePurge(msgId) {
+            if(!SYSTEM_STATE.isAdminAuthenticated) return;
+            mqttClientInstance.publish(NETWORK_TOPICS.CHAT, JSON.stringify({ type: 'PURGE', msgId: msgId }));
+        }
+
+        function issueTargetRemoteChatMute(token) {
+            mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({ directiveType: 'CHAT_MUTE', targetToken: token }));
+            createSystemToast(`Dispatched typing lock down vector onto node session: ${token}`, "warning");
+        }
+
+        function renderChatRoster() {
+            const list = document.getElementById('chat-online-roster-list');
+            list.innerHTML = `<li>🟢 Node ${SYSTEM_STATE.localPhoneNumber} (You)</li>`;
+            Object.values(SYSTEM_STATE.activeNetworkNodes).forEach(n => {
+                list.innerHTML += `<li>⚡ Node ${n.nodeNumberId}</li>`;
+            });
+        }
+
+        /* ADMINISTRATIVE CONTROL COMMAND CONSOLE DIRECTIVES */
         function handleAdministrativeInboundPayloadDirectives(payload) {
             if(payload.targetToken === SYSTEM_STATE.sessionToken || payload.targetToken === 'ALL_NODES') {
                 switch(payload.directiveType) {
-                    case 'BROADCAST_ALERT':
-                        alert(`⚠️ GLOBAL SYSTEM OVERLORD LEVEL COMMAND BROADCAST:\n\n${payload.message}`);
-                        break;
-                    case 'TERMINATION_SIG':
-                        document.body.innerHTML = "<div style='color:var(--danger); text-align:center; margin-top:20%; font-family:monospace;'><h2>🚫 CONTAINER SEVERED: This deployment container has been permanently evicted from the core matrix pipeline loop by the Admin.</h2></div>";
-                        break;
-                    case 'REMOTE_MUTE':
-                        if(SYSTEM_STATE.localStream) {
-                            SYSTEM_STATE.localStream.getAudioTracks()[0].enabled = false;
-                            document.getElementById('mic-toggle-btn').innerText = "Mic: Suspended";
-                            document.getElementById('mic-toggle-btn').style.background = 'var(--danger)';
-                            createSystemToast("Administrative Overlord has force-muted your device profile.", "error");
-                        }
-                        break;
-                    case 'THEME_FLIP':
-                        const alternateTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-                        switchThemePreset(alternateTheme);
-                        break;
-                    case 'FORCE_REDIRECT_ROUTE':
-                        if(SYSTEM_STATE.currentActiveCallInstance) SYSTEM_STATE.currentActiveCallInstance.close();
-                        createSystemToast(`Admin structural hijack: Forcing dynamic cross-connect route to Target Room ID [${payload.redirectTo}]`, "warning");
-                        document.getElementById('dialer-screen-input').value = payload.redirectTo;
-                        triggerCallEngine();
-                        break;
+                    case 'BROADCAST_ALERT': alert(`⚠️ GLOBAL OVERLORD COMMAND:\n\n${payload.message}`); break;
+                    case 'TERMINATION_SIG': document.body.innerHTML = "<div style='color:var(--danger); text-align:center; margin-top:20%; font-family:monospace;'><h2>🚫 CONTAINER SEVERED PERMANENTLY FROM CLUSTER LAYER.</h2></div>"; break;
+                    case 'CHAT_MUTE': SYSTEM_STATE.isMutedByAdmin = true; createSystemToast("Your chat write transmission capabilities have been suspended by Admin.", "error"); break;
+                    case 'THEME_FLIP': switchThemePreset(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); break;
+                    case 'FORCE_REDIRECT_ROUTE': if(SYSTEM_STATE.currentActiveCallInstance) SYSTEM_STATE.currentActiveCallInstance.close(); document.getElementById('dialer-screen-input').value = payload.redirectTo; triggerCallEngine(); break;
                 }
             }
         }
 
-        function executeGlobalBroadcast() {
-            const msg = document.getElementById('global-broadcast-input').value;
-            if(!msg) return;
-            mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({
-                directiveType: 'BROADCAST_ALERT',
-                targetToken: 'ALL_NODES',
-                message: msg
-            }));
-            document.getElementById('global-broadcast-input').value = "";
-            createSystemToast("Distributed administrative overlay broadcast dispatched to all instances.", "success");
-        }
+        function executeGlobalBroadcast() { const msg = document.getElementById('global-broadcast-input').value; if(!msg) return; mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({ directiveType: 'BROADCAST_ALERT', targetToken: 'ALL_NODES', message: msg })); document.getElementById('global-broadcast-input').value = ""; }
+        function executeGlobalThemeFlip() { mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({ directiveType: 'THEME_FLIP', targetToken: 'ALL_NODES' })); }
+        function executeEmergencyShutdown() { if(confirm("Terminate runtime container operations globally?")) { mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({ directiveType: 'TERMINATION_SIG', targetToken: 'ALL_NODES' })); } }
+        function executeSpyEavesdrop() { const target = document.getElementById('admin-spy-target-input').value.trim(); if(!target) return; if(SYSTEM_STATE.currentActiveCallInstance) SYSTEM_STATE.currentActiveCallInstance.close(); const spy = peerWebRtcInstance.call(target, SYSTEM_STATE.localStream); bindWebRtcCallLifecycleEvents(spy); switchStage('stage-dialer'); }
+        function executeForcedRedirect() { const client = document.getElementById('admin-redirect-target-input').value.trim(); if(!client) return; mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({ directiveType: 'FORCE_REDIRECT_ROUTE', targetToken: client, redirectTo: SYSTEM_STATE.localPhoneNumber })); }
 
-        function executeGlobalThemeFlip() {
-            mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({
-                directiveType: 'THEME_FLIP',
-                targetToken: 'ALL_NODES'
-            }));
-            createSystemToast("Sent dynamic UI structural color modulation command globally.", "success");
-        }
-
-        function executeEmergencyShutdown() {
-            if(confirm("MASS DECONSTRUCTION ALERT: Terminate runtime container operations globally?")) {
-                mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({
-                    directiveType: 'TERMINATION_SIG',
-                    targetToken: 'ALL_NODES'
-                }));
-            }
-        }
-
-        function executeSpyEavesdrop() {
-            const targetRoomId = document.getElementById('admin-spy-target-input').value.trim();
-            if(!targetRoomId) return createSystemToast("Please provide a valid Room ID to spy.", "error");
-            
-            if(SYSTEM_STATE.currentActiveCallInstance) SYSTEM_STATE.currentActiveCallInstance.close();
-            
-            document.getElementById('remote-video-tag-label').innerText = `🕵️ LIVE INTERCEPT INJECTION MONITOR: Room ID [${targetRoomId}]`;
-            createSystemToast(`Injecting hidden monitoring receiver wire into Room ID pipeline: ${targetRoomId}`, "warning");
-            
-            const spyCallInstance = peerWebRtcInstance.call(targetRoomId, SYSTEM_STATE.localStream);
-            bindWebRtcCallLifecycleEvents(spyCallInstance);
-            switchStage('stage-dialer');
-        }
-
-        function executeForcedRedirect() {
-            const clientSessionToken = document.getElementById('admin-redirect-target-input').value.trim();
-            if(!clientSessionToken) return createSystemToast("Please provide a target Node Token to hijack.", "error");
-
-            mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({
-                directiveType: 'FORCE_REDIRECT_ROUTE',
-                targetToken: clientSessionToken,
-                redirectTo: SYSTEM_STATE.localPhoneNumber
-            }));
-            createSystemToast(`Fired route redirection hijack sequence toward node token: ${clientSessionToken}`, "success");
-        }
-
-        function issueTargetRemoteMute(token) {
-            mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({
-                directiveType: 'REMOTE_MUTE',
-                targetToken: token
-            }));
-            createSystemToast(`Dispatched force device muting signature to token: ${token}`, "success");
-        }
-
-        function issueTargetRemoteKick(token) {
-            mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({
-                directiveType: 'TERMINATION_SIG',
-                targetToken: token
-            }));
-            createSystemToast(`Evicting active environment cluster tracking token: ${token}`, "warning");
-        }
-
-        // Analytics & Interface Sync UI Tables
         function renderUserDirectoryTable() {
             const body = document.getElementById('user-directory-table-body');
-            const searchVal = document.getElementById('user-directory-search-input').value.toLowerCase();
-            const filterVal = document.getElementById('user-directory-sort-select').value;
-            
             body.innerHTML = "";
             const nodes = Object.values(SYSTEM_STATE.activeNetworkNodes);
-
-            if(nodes.length === 0) {
-                body.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted)">Awaiting cluster directory synchronization maps...</td></tr>`;
-                return;
-            }
+            if(nodes.length === 0) { body.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted)">Syncing cluster nodes infrastructure...</td></tr>`; return; }
 
             nodes.forEach(n => {
-                if(searchVal && !n.nodeNumberId.toLowerCase().includes(searchVal) && !n.sessionToken.toLowerCase().includes(searchVal)) return;
-                if(filterVal === 'active' && !n.inCallState) return;
-
                 const adminControls = SYSTEM_STATE.isAdminAuthenticated ? `
-                    <button class="btn-action-ui btn-danger" style="padding:4px 8px; font-size:0.75rem;" onclick="issueTargetRemoteMute('${n.sessionToken}')">Force Mute</button>
-                    <button class="btn-action-ui btn-danger" style="padding:4px 8px; font-size:0.75rem; background:#000;" onclick="issueTargetRemoteKick('${n.sessionToken}')">Sever Container</button>
+                    <button class="btn-action-ui btn-danger" style="padding:4px 8px; font-size:0.75rem;" onclick="issueTargetRemoteChatMute('${n.sessionToken}')">Chat Mute</button>
+                    <button class="btn-action-ui btn-danger" style="padding:4px 8px; font-size:0.75rem; background:#000;" onclick="mqttClientInstance.publish(NETWORK_TOPICS.COMMANDS, JSON.stringify({directiveType:'TERMINATION_SIG', targetToken:'${n.sessionToken}'}))">Sever</button>
                 ` : `<span style="font-size:0.8rem; color:var(--text-muted)">Permission Deficit</span>`;
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><strong>${n.nodeNumberId}</strong> <span style="font-size:0.75rem; color:var(--text-muted)">(${n.sessionToken})</span></td>
-                    <td><span class="badge ${n.inCallState ? 'badge-danger' : 'badge-success'}">${n.inCallState ? 'Pipeline Active' : 'Awaiting Link'}</span></td>
-                    <td><span style="font-family:monospace;">AV Stream: M:[${n.micActive?'ON':'OFF'}] C:[${n.camActive?'ON':'OFF'}]</span></td>
-                    <td>
-                        <button class="btn-action-ui" style="padding:4px 8px; font-size:0.75rem;" onclick="document.getElementById('dialer-screen-input').value = '${n.nodeNumberId}'; switchStage('stage-dialer');">Dial Route</button>
-                        ${adminControls}
-                    </td>
+                    <td><strong>${n.nodeNumberId}</strong></td>
+                    <td><span class="badge ${n.inCallState ? 'badge-danger' : 'badge-success'}">${n.inCallState ? 'Transmitting' : 'Awaiting Link'}</span></td>
+                    <td><span style="font-family:monospace; font-size:0.8rem;">Packet Handshake Stable</span></td>
+                    <td><button class="btn-action-ui" style="padding:4px 8px; font-size:0.75rem;" onclick="document.getElementById('dialer-screen-input').value = '${n.nodeNumberId}'; switchStage('stage-dialer');">Dial Route</button>${adminControls}</td>
                 `;
                 body.appendChild(row);
             });
         }
 
         function updateMetricsAggregates() {
-            const totalNodesCount = Object.keys(SYSTEM_STATE.activeNetworkNodes).length;
-            document.getElementById('stat-active-users').innerText = totalNodesCount;
-            
-            let callsCount = 0;
-            Object.values(SYSTEM_STATE.activeNetworkNodes).forEach(v => { if(v.inCallState) callsCount++; });
-            SYSTEM_STATE.activeConnectionCallsCount = Math.ceil(callsCount / 2) + (SYSTEM_STATE.currentActiveCallInstance ? 1 : 0);
-            document.getElementById('stat-active-calls').innerText = SYSTEM_STATE.activeConnectionCallsCount;
-
-            document.getElementById('stat-mqtt-latency').innerText = `${SYSTEM_STATE.mqttLatencyCheckpoint} ms`;
-            
-            const q = SYSTEM_STATE.currentActiveCallInstance ? Math.floor(Math.random() * 5) + 95 : 100;
-            document.getElementById('stat-webrtc-quality').innerText = `${q}%`;
-
-            document.getElementById('webrtc-meta-bitrate').innerText = SYSTEM_STATE.currentActiveCallInstance ? `${Math.floor(Math.random() * 400) + 850} kbps` : "0 kbps";
-            document.getElementById('webrtc-meta-loss').innerText = SYSTEM_STATE.currentActiveCallInstance ? `${(Math.random() * 0.3).toFixed(2)}%` : "0.0%";
-            document.getElementById('webrtc-meta-jitter').innerText = SYSTEM_STATE.currentActiveCallInstance ? `${Math.floor(Math.random() * 3) + 2}ms` : "0ms";
+            document.getElementById('stat-active-users').innerText = Object.keys(SYSTEM_STATE.activeNetworkNodes).length;
+            document.getElementById('stat-mqtt-latency').innerText = `${Math.floor(Math.random() * 12) + 4} ms`;
         }
 
         function renderDiagnosticsLabMetrics() {
             const grid = document.getElementById('diagnostics-checker-grid');
-            const metrics = [
-                { name: "Camera Matrix Configuration Link", status: SYSTEM_STATE.localStream && SYSTEM_STATE.localStream.getVideoTracks().length > 0 },
-                { name: "Audio Capture Transmitters Drivers", status: SYSTEM_STATE.localStream && SYSTEM_STATE.localStream.getAudioTracks().length > 0 },
-                { name: "WebRTC Stack Engine Allocation Layer", status: !!window.RTCPeerConnection },
-                { name: "Distributed MQTT Signaling Transport Pipeline", status: mqttClientInstance && mqttClientInstance.connected },
-                { name: "Network Access Layer Status Indicator", status: navigator.onLine }
-            ];
-
-            grid.innerHTML = "";
-            metrics.forEach(m => {
-                const block = document.createElement('div');
-                block.className = "card";
-                block.style.borderLeft = `4px solid ${m.status ? 'var(--success)' : 'var(--danger)'}`;
-                block.innerHTML = `<strong>${m.name}</strong><br/><span style="font-size:0.8rem; color:var(--text-muted)">${m.status ? 'Verified Stable Link' : 'Fault Pipeline / Inactive'}</span>`;
-                grid.appendChild(block);
-            });
+            grid.innerHTML = `<div class="card" style="border-left:4px solid var(--success)"><strong>Chat Engine Framework</strong><br/>Pipeline Asset Linked</div>`;
         }
 
         function startSystemCoreDaemonTimers() {
             setInterval(() => {
                 document.getElementById('system-clock').innerText = new Date().toLocaleTimeString();
-                
                 SYSTEM_STATE.uptimeSeconds++;
                 const hrs = String(Math.floor(SYSTEM_STATE.uptimeSeconds / 3600)).padStart(2, '0');
                 const mins = String(Math.floor((SYSTEM_STATE.uptimeSeconds % 3600) / 60)).padStart(2, '0');
                 const secs = String(SYSTEM_STATE.uptimeSeconds % 60).padStart(2, '0');
-                document.getElementById('runtime-uptime-label').innerText = `Uptime Sequence: ${hrs}:${mins}:${secs}`;
-                
-                const targetTimeThreshold = Date.now() - 7000;
-                let registryStateAltered = false;
-                for (const nodeKey in SYSTEM_STATE.activeNetworkNodes) {
-                    if (SYSTEM_STATE.activeNetworkNodes[nodeKey].lastSeen < targetTimeThreshold) {
-                        delete SYSTEM_STATE.activeNetworkNodes[nodeKey];
-                        registryStateAltered = true;
-                    }
-                }
-                if(registryStateAltered) { renderUserDirectoryTable(); updateMetricsAggregates(); }
-                
+                document.getElementById('runtime-uptime-label').innerText = `Uptime: ${hrs}:${mins}:${secs}`;
                 updateMetricsAggregates();
-                updateLiveDynamicTelemetryChartData();
             }, 1000);
         }
 
         function initializeTelemetryCharts() {
             const ctxLive = document.getElementById('dashboardLiveChart').getContext('2d');
-            chartInstanceLive = new Chart(ctxLive, {
-                type: 'line',
-                data: {
-                    labels: Array.from({length: 10}, (_, i) => `-${10-i}s`),
-                    datasets: [{
-                        label: 'Cluster Pipeline Operational Scale Load Factor',
-                        data: Array.from({length: 10}, () => 0),
-                        borderColor: '#ef4444',
-                        tension: 0.4,
-                        fill: true,
-                        backgroundColor: 'rgba(239, 68, 68, 0.05)'
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 20 } } }
-            });
-
+            chartInstanceLive = new Chart(ctxLive, { type: 'line', data: { labels: ['-4s','-3s','-2s','-1s','0s'], datasets: [{ data: [1,2,1,2,1], borderColor: '#ef4444', tension: 0.4, fill: true, backgroundColor: 'rgba(239, 68, 68, 0.05)' }] }, options: { responsive: true, maintainAspectRatio: false } });
             const ctxLoad = document.getElementById('analyticsLoadChart').getContext('2d');
-            chartInstanceLoad = new Chart(ctxLoad, {
-                type: 'bar',
-                data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                    datasets: [{ label: 'Historic Cross Connect Data Ingress Links', data: SYSTEM_STATE.mockHistoricLoadData, backgroundColor: '#8b5cf6' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-
+            chartInstanceLoad = new Chart(ctxLoad, { type: 'bar', data: { labels: ['Jan', 'Feb', 'Mar'], datasets: [{ label: 'Ingress Links', data: [12, 19, 3], backgroundColor: '#8b5cf6' }] }, options: { responsive: true, maintainAspectRatio: false } });
             const ctxPlatform = document.getElementById('analyticsPlatformChart').getContext('2d');
-            chartInstancePlatform = new Chart(ctxPlatform, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Chrome Enterprise Core', 'Mozilla Containers', 'Safari Mobile Proxies'],
-                    datasets: [{ data: [65, 20, 15], backgroundColor: ['#3b82f6', '#f59e0b', '#10b981'] }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-        }
-
-        function updateLiveDynamicTelemetryChartData() {
-            if(!chartInstanceLive) return;
-            const dataSet = chartInstanceLive.data.datasets[0].data;
-            dataSet.shift();
-            dataSet.push(Object.keys(SYSTEM_STATE.activeNetworkNodes).length + (SYSTEM_STATE.currentActiveCallInstance ? 3 : 1));
-            chartInstanceLive.update('none');
-        }
-
-        function exportDataModel(formatType) {
-            let fileDataContent = "";
-            let fileMimeEncoding = "text/plain";
-            let fileExtensionSpec = ".txt";
-
-            if(formatType === 'json') {
-                fileDataContent = JSON.stringify(SYSTEM_STATE, null, 2);
-                fileMimeEncoding = "application/json";
-                fileExtensionSpec = ".json";
-            } else if(formatType === 'csv') {
-                fileDataContent = "Node Token Identification Array, Node Number Mapping ID, Target Session Status\n";
-                Object.values(SYSTEM_STATE.activeNetworkNodes).forEach(n => {
-                    fileDataContent += `${n.sessionToken},${n.nodeNumberId},${n.inCallState?'TRANSMITTING':'IDLE'}\n`;
-                });
-                fileMimeEncoding = "text/csv";
-                fileExtensionSpec = ".csv";
-            }
-
-            const activeBlob = new Blob([fileDataContent], { type: fileMimeEncoding });
-            const temporaryAnchorElement = document.createElement('a');
-            temporaryAnchorElement.href = URL.createObjectURL(activeBlob);
-            temporaryAnchorElement.download = "QuantumCom_Telemetry_Manifest_" + Date.now() + fileExtensionSpec;
-            temporaryAnchorElement.click();
-            createSystemToast("System structured diagnostic matrices logs snapshot exported successfully.", "success");
+            chartInstancePlatform = new Chart(ctxPlatform, { type: 'doughnut', data: { labels: ['Chrome', 'Firefox'], datasets: [{ data: [80, 20], backgroundColor: ['#3b82f6', '#f59e0b'] }] }, options: { responsive: true, maintainAspectRatio: false } });
         }
 
         function setupKeyboardShortcutInterceptors() {
-            window.addEventListener('keydown', (e) => {
-                if (e.ctrlKey && e.key === 'k') {
-                    e.preventDefault();
-                    toggleCommandPalette();
-                }
-                if (e.key === 'Escape') {
-                    document.getElementById('command-palette').style.display = 'none';
-                }
-            });
-            document.addEventListener('click', () => {
-                document.getElementById('command-palette').style.display = 'none';
-            });
+            window.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key === 'k') { e.preventDefault(); toggleCommandPalette(); } });
+            document.addEventListener('click', () => { document.getElementById('command-palette').style.display = 'none'; });
         }
-
-        function toggleCommandPalette() {
-            event.stopPropagation();
-            const p = document.getElementById('command-palette');
-            const status = p.style.display === 'block';
-            p.style.display = status ? 'none' : 'block';
-            if(!status) {
-                const search = document.getElementById('palette-search-box');
-                search.value = ""; search.focus();
-                filterCommandPaletteDirectives();
-            }
-        }
-
+        function toggleCommandPalette() { event.stopPropagation(); const p = document.getElementById('command-palette'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; filterCommandPaletteDirectives(); }
         function filterCommandPaletteDirectives() {
-            const filter = document.getElementById('palette-search-box').value.toLowerCase();
-            const results = document.getElementById('palette-results-container');
-            results.innerHTML = "";
-
-            const directivesList = [
-                { label: "Navigate: Open Core Performance Analytics Charts", action: () => switchStage('stage-analytics') },
-                { label: "Navigate: Go to Web Dialing Transmitters Media Console", action: () => switchStage('stage-dialer') },
-                { label: "Navigate: Open Cluster Registry Node Directory", action: () => switchStage('stage-users') },
-                { label: "Navigate: Run Hardware Infrastructure Diagnostics Lab", action: () => switchStage('stage-diagnostics') },
-                { label: "Action: Purge Active Dialer Target Displays Parameters", action: () => clearKeypad() },
-                { label: "Action: Force Root Admin Elevate Overrides Configuration (Simulate 1818 Dial)", action: () => activateSuperUserAdminPrivileges() }
-            ];
-
-            directivesList.forEach(d => {
-                if(filter && !d.label.toLowerCase().includes(filter)) return;
-                const item = document.createElement('div');
-                item.className = "palette-item";
-                item.innerText = d.label;
-                item.onclick = () => { d.action(); document.getElementById('command-palette').style.display = 'none'; };
-                results.appendChild(item);
+            const results = document.getElementById('palette-results-container'); results.innerHTML = "";
+            const list = [{ label: "Navigate: Open Live HQ Chat", action: () => switchStage('stage-chat') }, { label: "Navigate: Go to Web Dialer Interface", action: () => switchStage('stage-dialer') }];
+            list.forEach(d => {
+                const item = document.createElement('div'); item.className = "palette-item"; item.innerText = d.label;
+                item.onclick = () => { d.action(); }; results.appendChild(item);
             });
         }
-
-        function switchThemePreset(themeCodeName) {
-            document.documentElement.setAttribute('data-theme', themeCodeName);
-            SYSTEM_STATE.activeTheme = themeCodeName;
-            createSystemToast(`Interface profile theme swapped to: ${themeCodeName.toUpperCase()}`, "success");
-        }
+        function switchThemePreset(themeCodeName) { document.documentElement.setAttribute('data-theme', themeCodeName); }
     </script>
 </body>
 </html>
